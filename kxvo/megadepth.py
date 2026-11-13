@@ -17,7 +17,7 @@ def main():
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--dataset", type=Path, required=True,
                         help="Directory containing megadepth_test_1500")
-    parser.add_argument("--seed", type=int, default=1)
+    parser.add_argument("--seed", type=int, nargs="+", default=[1])
     parser.add_argument("--device", default="cpu")
     args = parser.parse_args()
     model = load_xfeat(args.source, args.checkpoint, args.device)
@@ -29,15 +29,35 @@ def main():
     # The pinned evaluator uses the NumPy 1.x integration name.
     if not hasattr(np, "trapz"):
         np.trapz = np.trapezoid
-    np.random.seed(args.seed)
-    cv2.setRNGSeed(args.seed)
+    np.random.seed(args.seed[0])
+    cv2.setRNGSeed(args.seed[0])
     root = args.dataset / "megadepth_test_1500"
     if not root.is_dir():
         parser.error(f"Missing dataset directory: {root}")
-    print(f"checkpoint SHA-256 {sha256(args.checkpoint)}, seed {args.seed}", flush=True)
+    print(f"checkpoint SHA-256 {sha256(args.checkpoint)}, seeds {args.seed}", flush=True)
     dataset = upstream.MegaDepth1500(json_file=str(args.source / "assets/megadepth_1500.json"), root_dir=str(root))
     loader = upstream.DataLoader(dataset, batch_size=1, shuffle=False)
-    upstream.run_pose_benchmark(matcher_fn=model.match_xfeat, loader=loader, ransac_thr=2.5)
+    seeds = args.seed
+    errors = {seed: [] for seed in seeds}
+    for sample in upstream.tqdm.tqdm(loader):
+        left, right = model.match_xfeat(upstream.tensor2bgr(sample["image0"]), upstream.tensor2bgr(sample["image1"]))
+        left = left * sample["scale0"].numpy()
+        right = right * sample["scale1"].numpy()
+        K0, K1 = [sample[key].numpy()[0] for key in ("K0", "K1")]
+        truth = sample["T_0to1"].numpy()[0]
+        for seed in seeds:
+            error = float("inf")
+            if len(left) >= 5:
+                pose, info = upstream.poselib.estimate_relative_pose(
+                    left, right, upstream.intrinsics_to_camera(K0), upstream.intrinsics_to_camera(K1),
+                    {"max_epipolar_error": 2.5, "success_prob": 0.99999,
+                     "min_iterations": 20, "max_iterations": 1000, "seed": seed})
+                if info.get("num_inliers", 0) >= 5:
+                    error = max(upstream.relative_pose_error(truth, pose.R, pose.t))
+            errors[seed].append(error)
+    for seed, values in errors.items():
+        auc = {key: round(value * 100, 3) for key, value in upstream.error_auc(values).items()}
+        print(f"PoseLib seed {seed}: {auc}")
 
 
 if __name__ == "__main__":

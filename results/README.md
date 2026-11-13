@@ -11,3 +11,16 @@ The ArduCopter tests start on simulated GPS and switch to ExternalNav. The summa
 - [Training smoke](training-smoke.json)
 - [SITL summaries](sitl.json)
 - [MegaDepth-1500 relative pose](megadepth.json) for the original weights and both smoke checkpoints
+
+## Corrected harness and replay
+
+The original SITL artifact above is retained for diagnosis. Its renderer used float32 latitude and its pass condition did not enforce a useful pose stream or stable hold. Use the corrected run summaries for conclusions. They include clean isolated runs, failures under concurrent CPU load, an optical-flow fallback case, and a five-metre pose injection with EKF innovation-gate evidence.
+
+- [Corrected SITL summaries](review-sitl.json)
+- [640 px clean comparison](review-clean-640.json) and [plot](review-clean-640.png)
+- [640 px blur comparison](review-blur-640.json) and [plot](review-blur-640.png)
+
+At 640 px, pretrained XFeat with KLT tracking and descriptor recovery scored 0.103 m horizontal RMS on the clean synthetic clip and 0.248 m on the artificially blurred clip. Stock KLT scored 0.298 m and 0.317 m. Both detector-training smoke checkpoints scored worse than stock in the same replay. These results describe this generated room and trajectory.
+- [Detector-training smoke metrics](review-detector-smoke.json)
+
+- [Pretrained MegaDepth-1500 PoseLib seed variation](review-megadepth-seeds.json)

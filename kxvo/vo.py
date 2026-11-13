@@ -183,22 +183,50 @@ class MonoVO:
             self.feature_frame = (img, self.tracker.extract(img, self.mask))
         return self.feature_frame[1]
 
+    def _geometric_matches(self, matches, points):
+        if not matches:
+            return []
+        prior, current = np.asarray(matches).T
+        x = self.cam.normalize(self.pts[prior]) * self.cam.focal
+        y = self.cam.normalize(points[current]) * self.cam.focal
+        # Indoor floor and wall tracks may lie on different planes. A
+        # fundamental matrix can keep both inliers when there is parallax.
+        if len(matches) >= 12:
+            _, mask = cv2.findFundamentalMat(x, y, cv2.FM_RANSAC, self.cfg.pnp_reproj_px, 0.99)
+            if mask is not None and mask.size == len(matches) and mask.sum() >= 8:
+                return [match for match, ok in zip(matches, mask.ravel()) if ok]
+        # A small inter-frame displacement is the fallback for degenerate
+        # motion. Avoid extrapolating a fitted geometry from too few points.
+        return [match for match, distance in zip(matches, np.linalg.norm(x - y, axis=1)) if distance < 24]
+
     def _descriptor_track(self, img, t):
         points, desc = self._features(img)
         used = set()
         if len(self.pts):
-            matches = self.tracker.matches(self.descriptors, desc)
-            kept = np.array([i for i, _ in matches], dtype=int)
-            current = np.array([j for _, j in matches], dtype=int)
-            unmatched = set(range(len(self.pts))) - set(kept)
-            if self.tracker.gap_s > 0:
-                for i in sorted(unmatched):
-                    if self.verified[i] and np.isfinite(self.lm[i]).all():
-                        row = tuple(getattr(self, name)[i].copy() for name in self._track_fields)
-                        self.lost_tracks.append((self.t_last, self.descriptors[i].copy(), row))
-            self._keep(kept)
-            self.pts, self.descriptors = points[current], desc[current]
-            used.update(current.tolist())
+            if self.tracker.association == "hybrid" and self.prev_img is not None:
+                # Flow retains subpixel/keyframe continuity. Descriptors
+                # supply the independent short-gap landmark recovery path.
+                self._track(img, cache_lost=True)
+                if len(self.pts) and len(points):
+                    near = np.linalg.norm(points[:, None] - self.pts[None], axis=2).min(axis=1)
+                    used.update(np.flatnonzero(near < self.cfg.min_distance_px))
+            else:
+                matches = self._geometric_matches(self.tracker.matches(self.descriptors, desc), points)
+                kept = np.array([i for i, _ in matches], dtype=int)
+                current = np.array([j for _, j in matches], dtype=int)
+                self._cache_lost(set(range(len(self.pts))) - set(kept))
+                self._keep(kept)
+                refined = points[current].copy()
+                if len(refined) and self.prev_img is not None:
+                    initial = refined.reshape(-1, 1, 2).copy()
+                    subpixel, ok, _ = cv2.calcOpticalFlowPyrLK(
+                        self.prev_img, img, self.pts.reshape(-1, 1, 2), initial,
+                        flags=cv2.OPTFLOW_USE_INITIAL_FLOW, **self.lk)
+                    subpixel = subpixel.reshape(-1, 2)
+                    agree = (ok.ravel() == 1) & (np.linalg.norm(subpixel - refined, axis=1) <= 4)
+                    refined[agree] = subpixel[agree]
+                self.pts, self.descriptors = refined, desc[current]
+                used.update(current.tolist())
         self.lost_tracks = [entry for entry in self.lost_tracks
                             if entry[0] is not None and 0 < t - entry[0] <= self.tracker.gap_s][-self.cfg.max_corners:]
         free = [i for i in range(len(points)) if i not in used]
@@ -224,7 +252,15 @@ class MonoVO:
         self.lost_tracks = [item for i, item in enumerate(self.lost_tracks) if i not in recovered]
         return {"recovered": len(recovered), "recovery_s": ages, "recovery_rejected": rejected}
 
-    def _track(self, img: np.ndarray):
+    def _cache_lost(self, indices):
+        if self.tracker.gap_s <= 0:
+            return
+        for i in sorted(indices):
+            if self.verified[i] and np.isfinite(self.lm[i]).all():
+                row = tuple(getattr(self, name)[i].copy() for name in self._track_fields)
+                self.lost_tracks.append((self.t_last, self.descriptors[i].copy(), row))
+
+    def _track(self, img: np.ndarray, cache_lost=False):
         if not len(self.pts):
             return
         p0 = self.pts.reshape(-1, 1, 2)
@@ -246,6 +282,8 @@ class MonoVO:
             agree = np.linalg.norm(p1k - p1, axis=1) < self.cfg.kf_refine_max_px
             keep &= (stk.ravel() == 1) & agree
             p1 = np.where(keep[:, None], p1k, p1)
+        if cache_lost:
+            self._cache_lost(np.flatnonzero(~keep))
         self.pts = p1.astype(np.float32)
         self._keep(keep)
 

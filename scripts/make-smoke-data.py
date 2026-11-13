@@ -16,10 +16,11 @@ from kxvo.video import Recorder
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path)
+    parser.add_argument("--width", type=int, default=320)
     args = parser.parse_args()
     root = args.output
     root.mkdir(parents=True, exist_ok=False)
-    camera = default_camera()
+    camera = default_camera().scaled(args.width)
     camera.save(root / "camera.json")
     with (root / "manifest.csv").open("x", newline="") as stream:
         writer = csv.writer(stream)

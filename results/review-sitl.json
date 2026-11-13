@@ -1,0 +1,501 @@
+{
+  "review-truth": {
+    "setup": {
+      "binary_sha256": "4f7f2cd60e62780a451a221784e96eb8d858480f23ae20962e84a15b6666a288",
+      "params_sha256": "07b652f4296bcb388d90835e55a70cbe3dbcb44a878d1622ab4c67f26bc8aa62",
+      "delay_ms": 0,
+      "jitter_ms": 0,
+      "drop": 0,
+      "blur_min_px": 0,
+      "outlier_m": 0
+    },
+    "result": {
+      "mode": "truth fixture",
+      "tracker": "klt",
+      "checkpoint_sha256": null,
+      "phase": "landed-and-disarmed",
+      "frames": 484,
+      "valid_frames": 483,
+      "dropped": 0,
+      "poses_sent": 132,
+      "pose_bytes": 5808,
+      "outlier_injected": false,
+      "downlink_dropped": 0,
+      "peak_frame_queue": 1,
+      "fallback_commanded": false,
+      "statuses": [
+        "Disarming motors"
+      ],
+      "hold": {
+        "drift_m": 0.04812313646126246,
+        "rms_error_m": 0.0,
+        "valid_fraction": 1.0,
+        "duration_s": 6.862727666972205
+      },
+      "hold_poses": 61,
+      "blur_frames_ge_3px": 0,
+      "outlier_response": null,
+      "dataflash": {
+        "secondary_samples": 390,
+        "vision_received": 132,
+        "vision_accepted": 132,
+        "secondary_horizontal_innovation_samples": 200,
+        "land_mode": true
+      },
+      "acceptance_failures": []
+    }
+  },
+  "review-stock": {
+    "setup": {
+      "binary_sha256": "4f7f2cd60e62780a451a221784e96eb8d858480f23ae20962e84a15b6666a288",
+      "params_sha256": "07b652f4296bcb388d90835e55a70cbe3dbcb44a878d1622ab4c67f26bc8aa62",
+      "delay_ms": 0,
+      "jitter_ms": 0,
+      "drop": 0,
+      "blur_min_px": 0,
+      "outlier_m": 0
+    },
+    "result": {
+      "mode": "live kx-vo",
+      "tracker": "klt",
+      "checkpoint_sha256": null,
+      "phase": "landed-and-disarmed",
+      "frames": 485,
+      "valid_frames": 484,
+      "dropped": 0,
+      "poses_sent": 129,
+      "pose_bytes": 5676,
+      "outlier_injected": false,
+      "downlink_dropped": 0,
+      "peak_frame_queue": 1,
+      "fallback_commanded": false,
+      "statuses": [
+        "Disarming motors"
+      ],
+      "hold": {
+        "drift_m": 0.04812313646126246,
+        "rms_error_m": 0.008651609488362553,
+        "valid_fraction": 1.0,
+        "duration_s": 6.760840374976397
+      },
+      "hold_poses": 60,
+      "blur_frames_ge_3px": 0,
+      "outlier_response": null,
+      "dataflash": {
+        "secondary_samples": 388,
+        "vision_received": 129,
+        "vision_accepted": 129,
+        "secondary_horizontal_innovation_samples": 276,
+        "land_mode": true
+      },
+      "acceptance_failures": []
+    }
+  },
+  "review-final-stock": {
+    "setup": {
+      "binary_sha256": "4f7f2cd60e62780a451a221784e96eb8d858480f23ae20962e84a15b6666a288",
+      "params_sha256": "b77aef70b394b28a53d2c810d7c7eb0000d892e29e19381b8dffb55e3cdb0d27",
+      "effective_viso_delay_ms": 0,
+      "delay_ms": 0,
+      "jitter_ms": 0,
+      "drop": 0,
+      "blur_min_px": 0,
+      "fallback_source": "gps",
+      "outlier_m": 0
+    },
+    "result": {
+      "mode": "live kx-vo",
+      "tracker": "klt",
+      "checkpoint_sha256": null,
+      "phase": "landed-and-disarmed",
+      "frames": 514,
+      "valid_frames": 513,
+      "dropped": 0,
+      "poses_sent": 134,
+      "pose_bytes": 5896,
+      "outlier_injected": false,
+      "downlink_dropped": 0,
+      "peak_frame_queue": 1,
+      "fallback_commanded": false,
+      "statuses": [
+        "Disarming motors"
+      ],
+      "hold": {
+        "drift_m": 0.06556341170260828,
+        "rms_error_m": 0.013426503502329098,
+        "valid_fraction": 1.0,
+        "duration_s": 6.883981165941805
+      },
+      "hold_poses": 51,
+      "max_hold_pose_gap_s": 0.6434959169710055,
+      "external_nav_hold": {
+        "drift_m": 0.06556341170260828,
+        "rms_error_m": 0.013426503502329098,
+        "valid_fraction": 1.0,
+        "duration_s": 6.883981165941805
+      },
+      "blur_frames_ge_3px": 0,
+      "outlier_response": null,
+      "outlier_usec": null,
+      "dataflash": {
+        "secondary_samples": 450,
+        "vision_received": 134,
+        "vision_accepted": 134,
+        "secondary_horizontal_innovation_samples": 385,
+        "land_mode": true
+      },
+      "acceptance_failures": [
+        "insufficient pose stream during ExternalNav hold"
+      ]
+    }
+  },
+  "review-stock-isolated": {
+    "setup": {
+      "binary_sha256": "4f7f2cd60e62780a451a221784e96eb8d858480f23ae20962e84a15b6666a288",
+      "params_sha256": "b77aef70b394b28a53d2c810d7c7eb0000d892e29e19381b8dffb55e3cdb0d27",
+      "effective_viso_delay_ms": 0,
+      "delay_ms": 0,
+      "jitter_ms": 0,
+      "drop": 0,
+      "blur_min_px": 0,
+      "fallback_source": "gps",
+      "outlier_m": 0
+    },
+    "result": {
+      "mode": "live kx-vo",
+      "tracker": "klt",
+      "checkpoint_sha256": null,
+      "phase": "landed-and-disarmed",
+      "frames": 514,
+      "valid_frames": 513,
+      "dropped": 0,
+      "poses_sent": 130,
+      "pose_bytes": 5720,
+      "outlier_injected": false,
+      "downlink_dropped": 0,
+      "peak_frame_queue": 1,
+      "fallback_commanded": false,
+      "statuses": [
+        "Disarming motors"
+      ],
+      "hold": {
+        "drift_m": 0.3123871111328306,
+        "rms_error_m": 0.0150372768743601,
+        "valid_fraction": 1.0,
+        "duration_s": 6.892584832967259
+      },
+      "hold_poses": 52,
+      "max_hold_pose_gap_s": 0.3435866250656545,
+      "external_nav_hold": {
+        "drift_m": 0.3123871111328306,
+        "rms_error_m": 0.0150372768743601,
+        "valid_fraction": 1.0,
+        "duration_s": 6.892584832967259
+      },
+      "blur_frames_ge_3px": 0,
+      "outlier_response": null,
+      "outlier_usec": null,
+      "dataflash": {
+        "secondary_samples": 326,
+        "vision_received": 129,
+        "vision_accepted": 129,
+        "secondary_horizontal_innovation_samples": 308,
+        "land_mode": true
+      },
+      "acceptance_failures": []
+    }
+  },
+  "review-final-xfeat": {
+    "setup": {
+      "binary_sha256": "4f7f2cd60e62780a451a221784e96eb8d858480f23ae20962e84a15b6666a288",
+      "params_sha256": "b77aef70b394b28a53d2c810d7c7eb0000d892e29e19381b8dffb55e3cdb0d27",
+      "effective_viso_delay_ms": 0,
+      "delay_ms": 0,
+      "jitter_ms": 0,
+      "drop": 0,
+      "blur_min_px": 0,
+      "fallback_source": "gps",
+      "outlier_m": 0
+    },
+    "result": {
+      "mode": "live kx-vo",
+      "tracker": "xfeat",
+      "checkpoint_sha256": "0f5187fd7bedd26c7fe6acc9685444493a165a35ecc087b33c2db3627f3ea10b",
+      "phase": "land-commanded",
+      "frames": 485,
+      "valid_frames": 484,
+      "dropped": 0,
+      "poses_sent": 208,
+      "pose_bytes": 9152,
+      "outlier_injected": false,
+      "downlink_dropped": 0,
+      "peak_frame_queue": 1,
+      "fallback_commanded": false,
+      "statuses": [],
+      "hold": {
+        "drift_m": 0.25753094533006815,
+        "rms_error_m": 0.016101297894241466,
+        "valid_fraction": 1.0,
+        "duration_s": 6.929937041015364
+      },
+      "hold_poses": 36,
+      "max_hold_pose_gap_s": 1.0519563750131056,
+      "external_nav_hold": {
+        "drift_m": 0.25753094533006815,
+        "rms_error_m": 0.016101297894241466,
+        "valid_fraction": 1.0,
+        "duration_s": 6.929937041015364
+      },
+      "blur_frames_ge_3px": 0,
+      "outlier_response": null,
+      "outlier_usec": null,
+      "dataflash": {
+        "secondary_samples": 760,
+        "vision_received": 208,
+        "vision_accepted": 208,
+        "secondary_horizontal_innovation_samples": 748,
+        "land_mode": true
+      },
+      "acceptance_failures": [
+        "landing/disarm unconfirmed",
+        "insufficient pose stream during ExternalNav hold"
+      ]
+    }
+  },
+  "review-xfeat-isolated": {
+    "setup": {
+      "binary_sha256": "4f7f2cd60e62780a451a221784e96eb8d858480f23ae20962e84a15b6666a288",
+      "params_sha256": "b77aef70b394b28a53d2c810d7c7eb0000d892e29e19381b8dffb55e3cdb0d27",
+      "effective_viso_delay_ms": 0,
+      "delay_ms": 0,
+      "jitter_ms": 0,
+      "drop": 0,
+      "blur_min_px": 0,
+      "fallback_source": "gps",
+      "outlier_m": 0
+    },
+    "result": {
+      "mode": "live kx-vo",
+      "tracker": "xfeat",
+      "checkpoint_sha256": "0f5187fd7bedd26c7fe6acc9685444493a165a35ecc087b33c2db3627f3ea10b",
+      "phase": "landed-and-disarmed",
+      "frames": 496,
+      "valid_frames": 495,
+      "dropped": 0,
+      "poses_sent": 132,
+      "pose_bytes": 5808,
+      "outlier_injected": false,
+      "downlink_dropped": 0,
+      "peak_frame_queue": 1,
+      "fallback_commanded": false,
+      "statuses": [
+        "Disarming motors"
+      ],
+      "hold": {
+        "drift_m": 0.057359357648826,
+        "rms_error_m": 0.007061683366551022,
+        "valid_fraction": 1.0,
+        "duration_s": 6.966985667007975
+      },
+      "hold_poses": 64,
+      "max_hold_pose_gap_s": 0.13593029195908457,
+      "external_nav_hold": {
+        "drift_m": 0.057359357648826,
+        "rms_error_m": 0.007061683366551022,
+        "valid_fraction": 1.0,
+        "duration_s": 6.966985667007975
+      },
+      "blur_frames_ge_3px": 0,
+      "outlier_response": null,
+      "outlier_usec": null,
+      "dataflash": {
+        "secondary_samples": 278,
+        "vision_received": 132,
+        "vision_accepted": 132,
+        "secondary_horizontal_innovation_samples": 177,
+        "land_mode": true
+      },
+      "acceptance_failures": []
+    }
+  },
+  "review-final-flow": {
+    "setup": {
+      "binary_sha256": "4f7f2cd60e62780a451a221784e96eb8d858480f23ae20962e84a15b6666a288",
+      "params_sha256": "50557c09dc4dfe3d6f8523ef6f4f61e26000e0dae936a262f2c172a05105f83f",
+      "effective_viso_delay_ms": 80,
+      "delay_ms": 80.0,
+      "jitter_ms": 15.0,
+      "drop": 0.1,
+      "blur_min_px": 7,
+      "fallback_source": "flow",
+      "outlier_m": 0
+    },
+    "result": {
+      "mode": "live kx-vo",
+      "tracker": "klt",
+      "checkpoint_sha256": null,
+      "phase": "landed-and-disarmed",
+      "frames": 258,
+      "valid_frames": 205,
+      "dropped": 224,
+      "poses_sent": 67,
+      "pose_bytes": 2948,
+      "outlier_injected": false,
+      "downlink_dropped": 13,
+      "peak_frame_queue": 5,
+      "fallback_commanded": true,
+      "statuses": [
+        "EKF3 IMU0 fusing optical flow",
+        "EKF3 IMU1 fusing optical flow",
+        "Disarming motors"
+      ],
+      "hold": {
+        "drift_m": 0.043400886606731005,
+        "rms_error_m": 0.028989277212145653,
+        "valid_fraction": 1.0,
+        "duration_s": 6.003034207969904
+      },
+      "hold_poses": 16,
+      "max_hold_pose_gap_s": 0.18710079207085073,
+      "external_nav_hold": {
+        "drift_m": 0.02622536468124661,
+        "rms_error_m": 0.025629347414008113,
+        "valid_fraction": 1.0,
+        "duration_s": 0.9772905829595402
+      },
+      "blur_frames_ge_3px": 484,
+      "outlier_response": null,
+      "outlier_usec": null,
+      "dataflash": {
+        "secondary_samples": 48,
+        "vision_received": 67,
+        "vision_accepted": 67,
+        "secondary_horizontal_innovation_samples": 17,
+        "land_mode": true
+      },
+      "acceptance_failures": []
+    }
+  },
+  "review-outlier-checked": {
+    "setup": {
+      "binary_sha256": "4f7f2cd60e62780a451a221784e96eb8d858480f23ae20962e84a15b6666a288",
+      "params_sha256": "b77aef70b394b28a53d2c810d7c7eb0000d892e29e19381b8dffb55e3cdb0d27",
+      "effective_viso_delay_ms": 0,
+      "delay_ms": 0,
+      "jitter_ms": 0,
+      "drop": 0,
+      "blur_min_px": 0,
+      "fallback_source": "gps",
+      "outlier_m": 5.0
+    },
+    "result": {
+      "mode": "live kx-vo",
+      "tracker": "klt",
+      "checkpoint_sha256": null,
+      "phase": "landed-and-disarmed",
+      "frames": 485,
+      "valid_frames": 484,
+      "dropped": 0,
+      "poses_sent": 130,
+      "pose_bytes": 5720,
+      "outlier_injected": true,
+      "downlink_dropped": 0,
+      "peak_frame_queue": 1,
+      "fallback_commanded": false,
+      "statuses": [
+        "Disarming motors"
+      ],
+      "hold": {
+        "drift_m": 0.05642054869705251,
+        "rms_error_m": 0.009473376861263873,
+        "valid_fraction": 1.0,
+        "duration_s": 6.961501667043194
+      },
+      "hold_poses": 64,
+      "max_hold_pose_gap_s": 0.1979737909277901,
+      "external_nav_hold": {
+        "drift_m": 0.05642054869705251,
+        "rms_error_m": 0.009473376861263873,
+        "valid_fraction": 1.0,
+        "duration_s": 6.961501667043194
+      },
+      "blur_frames_ge_3px": 0,
+      "outlier_response": {
+        "injected_north_m": 5.681743530364612,
+        "peak_ekf_deviation_from_nominal_m": 0.008634952636340287,
+        "no_large_state_jump_observed": true
+      },
+      "outlier_usec": 938422881387,
+      "dataflash": {
+        "secondary_samples": 270,
+        "vision_received": 130,
+        "vision_accepted": 130,
+        "secondary_horizontal_innovation_samples": 162,
+        "land_mode": true,
+        "outlier_received": true,
+        "outlier_position_gate_exceeded": true,
+        "outlier_position_test_ratio_sqrt": 3.23
+      },
+      "acceptance_failures": []
+    }
+  },
+  "review-current-flow": {
+    "setup": {
+      "binary_sha256": "4f7f2cd60e62780a451a221784e96eb8d858480f23ae20962e84a15b6666a288",
+      "params_sha256": "50557c09dc4dfe3d6f8523ef6f4f61e26000e0dae936a262f2c172a05105f83f",
+      "effective_viso_delay_ms": 80,
+      "delay_ms": 80.0,
+      "jitter_ms": 15.0,
+      "drop": 0.1,
+      "blur_min_px": 7,
+      "fallback_source": "flow",
+      "outlier_m": 0
+    },
+    "result": {
+      "mode": "live kx-vo",
+      "tracker": "klt",
+      "checkpoint_sha256": null,
+      "phase": "landed-and-disarmed",
+      "frames": 371,
+      "valid_frames": 370,
+      "dropped": 111,
+      "poses_sent": 119,
+      "pose_bytes": 5236,
+      "outlier_injected": false,
+      "downlink_dropped": 0,
+      "peak_frame_queue": 4,
+      "fallback_commanded": true,
+      "statuses": [
+        "EKF3 IMU0 fusing optical flow",
+        "EKF3 IMU1 fusing optical flow",
+        "Disarming motors"
+      ],
+      "hold": {
+        "drift_m": 0.03046113002220152,
+        "rms_error_m": 0.04731343285983257,
+        "valid_fraction": 1.0,
+        "duration_s": 6.894453666987829,
+        "truth_samples": 212
+      },
+      "hold_poses": 16,
+      "max_hold_pose_gap_s": 0.16330070805270225,
+      "external_nav_hold": {
+        "drift_m": 0.022263897627860296,
+        "rms_error_m": 0.03805287085495493,
+        "valid_fraction": 1.0,
+        "duration_s": 0.9626439999556169
+      },
+      "blur_frames_ge_3px": 484,
+      "outlier_response": null,
+      "outlier_usec": null,
+      "dataflash": {
+        "secondary_samples": 48,
+        "vision_received": 118,
+        "vision_accepted": 118,
+        "secondary_horizontal_innovation_samples": 26,
+        "land_mode": true
+      },
+      "acceptance_failures": []
+    }
+  }
+}

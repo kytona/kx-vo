@@ -13,6 +13,7 @@ import cv2
 import numpy as np
 
 from .trackers import load_xfeat, sha256
+from .video import processing_frame
 
 OFFICIAL_SHA = "0f5187fd7bedd26c7fe6acc9685444493a165a35ecc087b33c2db3627f3ea10b"
 
@@ -36,7 +37,7 @@ def motion_blur(image, length, angle):
     return cv2.filter2D(image, -1, kernel / kernel.sum())
 
 
-def pair(image, rng, blur, max_blur):
+def pair(image, rng, blur, max_blur, blur_both=False):
     h, w = image.shape
     corners = np.float32([[0, 0], [w - 1, 0], [w - 1, h - 1], [0, h - 1]])
     shift = rng.uniform(-0.06, 0.06, (4, 2)) * [w, h]
@@ -44,6 +45,8 @@ def pair(image, rng, blur, max_blur):
     second = cv2.warpPerspective(image, warp, (w, h))
     if blur:
         second = motion_blur(second, rng.integers(3, max_blur + 1), rng.uniform(0, math.pi))
+        if blur_both:
+            image = motion_blur(image, rng.integers(3, max_blur + 1), rng.uniform(0, math.pi))
     return image, second, warp
 
 
@@ -143,19 +146,51 @@ def save_validation_overlays(images, max_blur, output):
             raise OSError("Could not save validation pair overlay")
 
 
+def detector_targets(teacher, clean, warp):
+    """Use clean pretrained detections as pseudo-labels in both warped views."""
+    points = teacher.detectAndCompute(clean, top_k=300)[0]["keypoints"].cpu().numpy()
+    return points, project(points, warp) if len(points) else points
+
+
+def detector_loss(logits, points, rng):
+    import torch
+    from torch.nn.functional import cross_entropy
+
+    _, h, w = logits.shape
+    xy = np.rint(points).astype(int)
+    xy = xy[inside(xy, w * 8, h * 8)]
+    if not len(xy):
+        return logits.sum() * 0
+    cells = (xy[:, 1] // 8) * w + xy[:, 0] // 8
+    positives, first = np.unique(cells, return_index=True)
+    labels = (xy[first, 1] % 8) * 8 + xy[first, 0] % 8
+    empty = np.setdiff1d(np.arange(h * w), positives)
+    negatives = rng.choice(empty, min(len(empty), max(1, len(positives) // 8)), replace=False)
+    indices = np.r_[positives, negatives]
+    labels = np.r_[labels, np.full(len(negatives), 64)]
+    flat = logits.permute(1, 2, 0).reshape(-1, 65)
+    return cross_entropy(flat[torch.as_tensor(indices, device=logits.device)],
+                         torch.as_tensor(labels, device=logits.device))
+
+
 def train_seed(args, rows, seed):
     import torch
 
     torch.manual_seed(seed)
     rng = np.random.default_rng(seed)
     model = load_xfeat(args.xfeat_source, args.checkpoint, args.device)
+    teacher = load_xfeat(args.xfeat_source, args.checkpoint, args.device) if args.train_detector else None
     output = args.output / f"seed-{seed}"
     output.mkdir(parents=True, exist_ok=False)
     paths = {"train": [], "validation": []}
     for row in rows:
         if row["split"] not in paths:
             continue
-        image = cv2.imread(str(row["file"]), cv2.IMREAD_GRAYSCALE)
+        frame = row["file"]
+        if frame.suffix == ".npy":
+            image = processing_frame(np.load(frame, allow_pickle=False))
+        else:
+            image = cv2.imread(str(frame), cv2.IMREAD_GRAYSCALE)
         if image is None:
             raise ValueError(f"Unreadable image: {row['file']}")
         paths[row["split"]].append(cv2.resize(image, (args.width, args.height), interpolation=cv2.INTER_AREA))
@@ -163,11 +198,11 @@ def train_seed(args, rows, seed):
     config = {k: str(v) if isinstance(v, Path) else v for k, v in vars(args).items()}
     provenance = {"config": config, "seed": seed, "torch": torch.__version__, "opencv": cv2.__version__,
                   "base_sha256": sha256(args.checkpoint), "manifest": manifest,
-                  "teacher": "none; descriptor-only ablation; detector and reliability heads frozen"}
+                  "teacher": "pinned XFeat on clean frames" if teacher else "none; descriptor-only ablation"}
     (output / "provenance.json").write_text(json.dumps(provenance, indent=2) + "\n")
     # Keep the detector, reliability head and fine matcher fixed for the sparse experiment.
     for name, parameter in model.net.named_parameters():
-        if name.startswith(("keypoint_head", "heatmap_head", "fine_matcher")):
+        if name.startswith(("heatmap_head", "fine_matcher")) or (not teacher and name.startswith("keypoint_head")):
             parameter.requires_grad_(False)
     opt = torch.optim.Adam([p for p in model.net.parameters() if p.requires_grad], lr=args.lr)
     baseline = evaluate_pairs(model, paths["validation"], args.max_blur)
@@ -181,11 +216,12 @@ def train_seed(args, rows, seed):
         for child in model.net.modules():
             if isinstance(child, torch.nn.BatchNorm2d):
                 child.eval()
-        batch = [pair(paths["train"][i], rng, rng.random() < 0.7, args.max_blur)
-                 for i in rng.integers(len(paths["train"]), size=args.batch)]
+        clean_batch = [paths["train"][i] for i in rng.integers(len(paths["train"]), size=args.batch)]
+        batch = [pair(image, rng, rng.random() < 0.7, args.max_blur, blur_both=rng.random() < 0.5)
+                 for image in clean_batch]
         a = torch.cat([image_tensor(row[0], args.device) for row in batch])
         b = torch.cat([image_tensor(row[1], args.device) for row in batch])
-        features = model.net(torch.cat([a, b]))[0]
+        features, logits, _ = model.net(torch.cat([a, b]))
         losses = []
         for i, (_, _, warp) in enumerate(batch):
             p, q = labelled_cells(warp, args.width, args.height)
@@ -193,7 +229,12 @@ def train_seed(args, rows, seed):
                 idx = rng.choice(len(p), min(len(p), 256), replace=False)
                 p_sel = torch.as_tensor(p[idx], device=args.device)
                 q_sel = torch.as_tensor(q[idx], device=args.device)
-                losses.append(descriptor_loss(features[i], features[i + len(batch)], p_sel, q_sel))
+                loss = descriptor_loss(features[i], features[i + len(batch)], p_sel, q_sel)
+                if teacher:
+                    left, right = detector_targets(teacher, clean_batch[i], warp)
+                    loss += 0.25 * (detector_loss(logits[i], left, rng) +
+                                    detector_loss(logits[i + len(batch)], right, rng))
+                losses.append(loss)
         if not losses:
             raise RuntimeError("No usable correspondences in training batch")
         loss = torch.stack(losses).mean()
@@ -224,6 +265,7 @@ def main(argv=None):
     parser.add_argument("--xfeat-source", type=Path, default=Path("runs/xfeat-upstream"))
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--device", default="cpu")
+    parser.add_argument("--train-detector", action="store_true", help="Train the detector with clean-view pseudo-labels")
     parser.add_argument("--seeds", type=int, nargs="+", default=[1, 2])
     parser.add_argument("--steps", type=int, default=3000)
     parser.add_argument("--validate-every", type=int, default=500)

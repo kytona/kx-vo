@@ -40,7 +40,7 @@ def calibrate(src: str, cols: int, rows: int, square_m: float, width: int, fishe
         if show:
             vis = frame.copy()
             if found:
-                cv2.drawChessboardCorners(vis, (cols, rows), corners, found)
+                cv2.drawChessboardCorners(vis, (cols, rows), corners * (frame.shape[1] / gray.shape[1]), found)
             cv2.imshow("kxvo calibrate", vis)
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 break

@@ -34,7 +34,7 @@ Processing runs at about 275 frames per second at 320 x 240 on an Apple M5. That
 
 ```sh
 uv venv .venv && uv pip install --python .venv/bin/python -e ".[test]"
-.venv/bin/python -m pytest -q          # 13 tests
+.venv/bin/python -m pytest -q
 .venv/bin/kxvo synth --seeds 5         # the benchmark above
 ```
 
@@ -93,11 +93,11 @@ OMP_NUM_THREADS=2 .venv/bin/python -m kxvo.train \
 
 For the actual experiment, supply a CSV with `path,split,group,rights` and add camera/calibration and capture provenance columns. Paths are relative to the manifest. Assign whole flight sessions to train, validation and test. Pick dimensions divisible by 32 that preserve the capture aspect ratio. Start with two seeds, use `--device cuda` on a rented CUDA machine if needed, and save the validation logs and selected checkpoint for each seed. A seed can legitimately have no selected checkpoint if it fails the clean-recall or blur-improvement check.
 
-The first training recipe updates the descriptor backbone with warp correspondences. It freezes the sparse detector head, reliability head and fine matcher and skips ALIKE distillation. Report this as a descriptor-only ablation. Record any change to that recipe.
+The default training recipe updates the descriptor backbone with known warp correspondences. Add `--train-detector` to train the keypoint head using clean detections from the pinned XFeat teacher projected into the warped view. Training includes clean pairs and blur on one or both images. Keep descriptor-only and detector-training results labelled separately.
 
 ### Replay and score
 
-Use the same camera, mount offsets and recording for all trackers. An XFeat run requires a local `--checkpoint`. Use `--landmark-gap 0` and an explicit `--output` for the no-recovery ablation. Recordings and replays refuse to overwrite existing outputs.
+New live recordings store lossless full-resolution color arrays by default. Use `--record-format png` for a short capture that needs portable image files. Raw 720p color capture at 60 fps uses about 10 GB per minute. Replay converts and resizes them to the requested calibrated processing width. Old recordings can still replay, with the image detail available in the saved frames. Use the same camera, mount offsets and recording for all trackers. An XFeat run requires a local `--checkpoint`. ORB and XFeat default to hybrid tracking. Their detections seed tracks, KLT tracks them at subpixel resolution, and descriptors re-associate lost landmarks. Use `--association descriptor` to measure direct descriptor matching with geometric filtering. Use `--landmark-gap 0` and an explicit `--output` for the no-recovery ablation. Recordings and replays refuse to overwrite existing outputs.
 
 ```sh
 kxvo replay --camera runs/my-smoke/camera.json --range-offset 0 0 0 runs/my-smoke/blur
@@ -111,7 +111,7 @@ python -m kxvo.score --reference runs/my-smoke/blur/log.jsonl \
   --output results/my-replay.json --plot results/my-replay.png runs/my-smoke/blur/replay-*.jsonl
 ```
 
-For repeated real replay, `scripts/replay-experiment.sh CAMERA_JSON RUN_DIR OUTPUT_DIR CHECKPOINT [CHECKPOINT ...]` runs every tracker with three declared replay seeds using the default FlyTimes mount offsets. Set `KXVO_WIDTH` if your capture profile differs.
+For repeated real replay, `scripts/replay-experiment.sh CAMERA_JSON RUN_DIR OUTPUT_DIR CHECKPOINT [CHECKPOINT ...]` runs each tracker once with a declared seed using the default FlyTimes mount offsets. Set `KXVO_WIDTH` if your capture profile differs.
 
 For real flights, `python -m kxvo.ground_truth --help` describes how to produce a reference CSV from a surveyed overhead camera and a top-mounted ArUco marker. Supply one synchronized timestamp per video frame. Use one clean alignment window shared by all arms. Report the reference error and any periods without marker coverage. Start with a clean development clip to verify geometry, scale, timing and attitude/range before judging the learned tracker.
 
@@ -135,7 +135,7 @@ OMP_NUM_THREADS=2 python -m kxvo.sitl --arducopter runs/ardupilot/build/sitl/bin
   --output runs/my-xfeat --tracker xfeat --checkpoint runs/xfeat-upstream/weights/xfeat.pt
 ```
 
-Use the fine-tuned file in the same command to test that model. To exercise assumed link degradation, add `--delay-ms 80 --jitter-ms 15 --drop 0.1 --exposure-ms 12 --blackout-seconds 1 --downlink-bps 1250`. Replace these assumptions with measurements from the FlyTimes. The timeout, pilot source-switch command, transport logs, and DataFlash EKF evidence are recorded under the output directory. This demo uses a translation and hover, and the blackout scenario switches back to simulated GPS. Verify optical-flow recovery separately on the intended source setup.
+Use the fine-tuned file in the same command to test that model. To exercise assumed link degradation, add `--delay-ms 80 --jitter-ms 15 --drop 0.1 --exposure-ms 12 --blur-min-px 7 --blackout-seconds 1 --downlink-bps 1250 --fallback-source flow`. This uses an explicit synthetic blur floor and simulates a pilot switch from ExternalNav to optical flow. GPS supplies takeoff and the initial position in this scenario. The effective parameter file records the delay compensation. The summary checks the pose stream, actual hold drift, estimator error and valid coverage, in addition to EKF evidence and landing. Replace the injected assumptions with FlyTimes measurements before using the simulation to predict hardware behaviour.
 
 ## Limits
 

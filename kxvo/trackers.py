@@ -50,12 +50,13 @@ def load_xfeat(source: Path, checkpoint: Path, device: str = "cpu"):
 
 
 class DescriptorTracker:
-    def __init__(self, name, budget, checkpoint=None, source=None, device="cpu", gap_s=0.5):
+    def __init__(self, name, budget, checkpoint=None, source=None, device="cpu", gap_s=0.5, association="hybrid"):
         if name not in {"orb", "xfeat"}:
             raise ValueError(f"Unknown descriptor tracker: {name}")
         self.name = name
         self.budget = budget
         self.gap_s = gap_s
+        self.association = association
         self.checkpoint_hash = None
         if name == "orb":
             self.model = cv2.ORB_create(nfeatures=budget * 3, edgeThreshold=16, patchSize=31)

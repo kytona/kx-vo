@@ -1,0 +1,158 @@
+{
+  "runs/hybrid-blur640-klt.jsonl": {
+    "frames": 720,
+    "reference_covered_frames": 720,
+    "valid_covered_frames": 719,
+    "reset_changes": 0,
+    "initialization_s": 0.03333333333333333,
+    "processing_ms_p50_p95": [
+      5.706145544536412,
+      12.775393773335948
+    ],
+    "outage_count": 0,
+    "outage_s": 0.0,
+    "unavailable_s": 0.03333333333333333,
+    "alignment_window_s": [
+      1.0,
+      2.0
+    ],
+    "horizontal_rms_m": 0.31731528194976116,
+    "yaw_rms_deg": 2.0602010404365205,
+    "endpoint_error_m": 0.7821943291402002,
+    "path_m": 8.577403197347017,
+    "endpoint_error_pct": 9.119244031598424,
+    "relative_pairs": 509,
+    "relative_translation_m_median": 0.15127903119835645,
+    "relative_yaw_deg_median": 0.7703463698445389
+  },
+  "runs/hybrid-blur640-orb.jsonl": {
+    "frames": 720,
+    "reference_covered_frames": 720,
+    "valid_covered_frames": 719,
+    "reset_changes": 0,
+    "initialization_s": 0.03333333333333333,
+    "processing_ms_p50_p95": [
+      15.657042036764324,
+      37.70609581843016
+    ],
+    "outage_count": 0,
+    "outage_s": 0.0,
+    "unavailable_s": 0.03333333333333333,
+    "alignment_window_s": [
+      1.0,
+      2.0
+    ],
+    "horizontal_rms_m": 0.3165526022446134,
+    "yaw_rms_deg": 1.5721331830452492,
+    "endpoint_error_m": 0.7084967567904603,
+    "path_m": 8.577403197347017,
+    "endpoint_error_pct": 8.260037921612426,
+    "relative_pairs": 509,
+    "relative_translation_m_median": 0.13708163628670542,
+    "relative_yaw_deg_median": 0.9584294702881513
+  },
+  "runs/hybrid-blur640-xfeat.jsonl": {
+    "frames": 720,
+    "reference_covered_frames": 720,
+    "valid_covered_frames": 719,
+    "reset_changes": 0,
+    "initialization_s": 0.03333333333333333,
+    "processing_ms_p50_p95": [
+      60.40122953709215,
+      204.96679226052947
+    ],
+    "outage_count": 0,
+    "outage_s": 0.0,
+    "unavailable_s": 0.03333333333333333,
+    "alignment_window_s": [
+      1.0,
+      2.0
+    ],
+    "horizontal_rms_m": 0.24817013304166205,
+    "yaw_rms_deg": 1.1778910588148443,
+    "endpoint_error_m": 0.1366369554009773,
+    "path_m": 8.577403197347017,
+    "endpoint_error_pct": 1.5929874375409914,
+    "relative_pairs": 509,
+    "relative_translation_m_median": 0.2231867563302763,
+    "relative_yaw_deg_median": 0.8643357741410439
+  },
+  "runs/review-blur-detector-1.jsonl": {
+    "frames": 720,
+    "reference_covered_frames": 720,
+    "valid_covered_frames": 717,
+    "reset_changes": 0,
+    "initialization_s": 0.03333333333333333,
+    "processing_ms_p50_p95": [
+      142.81858346657827,
+      253.05873570032418
+    ],
+    "outage_count": 0,
+    "outage_s": 0.0,
+    "unavailable_s": 0.09999999999999976,
+    "alignment_window_s": [
+      1.0,
+      2.0
+    ],
+    "horizontal_rms_m": 0.6673360472947524,
+    "yaw_rms_deg": 4.724708779807154,
+    "endpoint_error_m": 0.4250284050330998,
+    "path_m": 8.577403197347017,
+    "endpoint_error_pct": 4.955210746820911,
+    "relative_pairs": 507,
+    "relative_translation_m_median": 0.5188015322329319,
+    "relative_yaw_deg_median": 1.638675200175005
+  },
+  "runs/review-blur-detector-2.jsonl": {
+    "frames": 720,
+    "reference_covered_frames": 720,
+    "valid_covered_frames": 718,
+    "reset_changes": 0,
+    "initialization_s": 0.03333333333333333,
+    "processing_ms_p50_p95": [
+      143.31239595776424,
+      260.89153509237786
+    ],
+    "outage_count": 0,
+    "outage_s": 0.0,
+    "unavailable_s": 0.06666666666666654,
+    "alignment_window_s": [
+      1.0,
+      2.0
+    ],
+    "horizontal_rms_m": 1.5457205514803232,
+    "yaw_rms_deg": 1.7575269256453838,
+    "endpoint_error_m": 1.0695511458770788,
+    "path_m": 8.577403197347017,
+    "endpoint_error_pct": 12.469405031675437,
+    "relative_pairs": 508,
+    "relative_translation_m_median": 0.9816871605146436,
+    "relative_yaw_deg_median": 2.0676309524352576
+  },
+  "runs/review-blur-no-recovery.jsonl": {
+    "frames": 720,
+    "reference_covered_frames": 720,
+    "valid_covered_frames": 719,
+    "reset_changes": 0,
+    "initialization_s": 0.03333333333333333,
+    "processing_ms_p50_p95": [
+      142.73733354639262,
+      256.1566205113193
+    ],
+    "outage_count": 0,
+    "outage_s": 0.0,
+    "unavailable_s": 0.03333333333333333,
+    "alignment_window_s": [
+      1.0,
+      2.0
+    ],
+    "horizontal_rms_m": 0.3618482281686918,
+    "yaw_rms_deg": 0.9603647180330175,
+    "endpoint_error_m": 0.08799795408005279,
+    "path_m": 8.577403197347017,
+    "endpoint_error_pct": 1.0259276852844048,
+    "relative_pairs": 509,
+    "relative_translation_m_median": 0.2655780120867837,
+    "relative_yaw_deg_median": 1.0434121728088401
+  }
+}

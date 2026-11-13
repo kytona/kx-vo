@@ -81,3 +81,51 @@ def test_pose_publication_rejects_stale_or_missing_inputs():
     assert not can_publish_pose(True, 1, (0, 0, 0), 1, 1.21, 0.2)
     assert not can_publish_pose(True, 1, None, 1, 1.01, 0.2)
     assert not can_publish_pose(True, 0, (0, 0, 0), 1, 1.01, 0.2)
+
+
+def test_sitl_uses_integer_geography():
+    from types import SimpleNamespace
+    from kxvo.sitl import local_position
+    state = SimpleNamespace(lat=515000000.0, lon=-1000000.0, lat_int=515000001,
+                            lon_int=-999999, alt=51.4)
+    p = local_position(state, (51.5, -0.1, 50))
+    assert p[0] == pytest.approx(0.01113195)
+    assert p[1] > 0
+    assert p[2] == pytest.approx(-1.4)
+
+
+def test_sitl_hold_requires_pose_stream_and_low_drift():
+    from types import SimpleNamespace
+    from kxvo.sitl import acceptance_failures
+    args = SimpleNamespace(hold_seconds=8, max_hold_drift_m=0.5, max_hold_error_m=0.3,
+                           blackout_seconds=0, outlier_m=0, fallback_source="gps")
+    result = {"dataflash": {"secondary_samples": 10, "vision_accepted": 10,
+                            "secondary_horizontal_innovation_samples": 10},
+              "phase": "landed-and-disarmed", "hold_poses": 0,
+              "hold": {"duration_s": 7, "drift_m": 3, "rms_error_m": 0.02, "valid_fraction": 1}}
+    assert len(acceptance_failures(result, args)) == 2
+
+
+@pytest.mark.parametrize("frame_format", ["png", "npy"])
+def test_recording_keeps_full_color_and_replay_selects_width(tmp_path, frame_format):
+    from kxvo.video import Recorder, replay_records
+    image = np.zeros((240, 320, 3), np.uint8)
+    image[:, :, 2] = 200
+    run = tmp_path / "capture"
+    rec = Recorder(run, frame_format=frame_format)
+    rec.write(0, image, {"att": [0, 0, 0], "range_m": 1})
+    rec.close()
+    frame_path = run / f"frames/000000.{frame_format}"
+    stored = np.load(frame_path, allow_pickle=False) if frame_format == "npy" else cv2.imread(str(frame_path))
+    assert np.array_equal(stored, image)
+    t, gray, distance, attitude = next(replay_records(run, 160))
+    assert gray.shape == (120, 160)
+    assert (t, distance, attitude) == (0, 1, (0, 0, 0))
+
+
+def test_descriptor_geometry_rejects_large_jump_with_few_matches():
+    cam = Camera(320, 240, 150, 150, 160, 120)
+    vo = MonoVO(cam)
+    vo.pts = np.array([[100, 100], [105, 100]], dtype=np.float32)
+    matches = vo._geometric_matches([(0, 0), (1, 1)], np.array([[103, 100], [220, 100]]))
+    assert matches == [(0, 0)]

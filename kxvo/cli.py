@@ -31,6 +31,7 @@ def _pipeline(a):
 
     from .camera import Camera
     from .pipeline import Mount, Pipeline
+    from .vo import VOConfig
 
     cv2.setRNGSeed(a.seed)
 
@@ -46,10 +47,20 @@ def _pipeline(a):
     if a.tracker != "klt":
         from .trackers import DescriptorTracker
         try:
-            tracker = DescriptorTracker(a.tracker, 300, a.checkpoint, a.xfeat_source, a.device, a.landmark_gap)
+            tracker = DescriptorTracker(a.tracker, 300, a.checkpoint, a.xfeat_source, a.device, a.landmark_gap, a.association)
         except (ValueError, RuntimeError, OSError) as exc:
             raise SystemExit(str(exc)) from exc
-    return cam, Pipeline(cam, mount, tracker=tracker)
+    if a.reproj_px is not None and not (math.isfinite(a.reproj_px) and a.reproj_px > 0):
+        raise SystemExit("--reproj-px must be finite and positive")
+    config = VOConfig()
+    if tracker is not None:
+        px_scale = cam.width / 320
+        config.pnp_reproj_px = (a.reproj_px or 3.0) * px_scale
+        config.cull_reproj_px = config.pnp_reproj_px * 1.5
+        config.verify_reproj_px = config.pnp_reproj_px * 0.75
+    elif a.reproj_px is not None:
+        config.pnp_reproj_px = a.reproj_px * cam.width / 320
+    return cam, Pipeline(cam, mount, config, tracker=tracker)
 
 
 def _record(out, rng, att):
@@ -82,7 +93,7 @@ def cmd_run(a):
     if a.mavlink:
         from .mav import MavLink
         mav = MavLink(a.mavlink)
-    rec = Recorder(a.record) if a.record else None
+    rec = Recorder(a.record, frame_format=a.record_format) if a.record else None
     meta = _run_meta(a, pipe)
     if rec:
         (rec.dir / "metadata.json").write_text(json.dumps(meta, indent=2) + "\n")
@@ -95,6 +106,8 @@ def cmd_run(a):
             t, gray, frame = video.read()
             if gray is None:
                 break
+            if gray.shape != (cam.height, cam.width):
+                raise ValueError(f"Capture aspect ratio differs from calibration: {frame.shape[:2]}")
             att, rng, ages = mav.snapshot_with_ages() if mav else (None, None, {})
             if mav:
                 mav.heartbeat()
@@ -110,7 +123,8 @@ def cmd_run(a):
                 sent += 1
                 next_send = now + period
             if rec:
-                rec.write(t, gray, {**_record(out, rng, att), "processing_ms": processing_ms,
+                rec.write(t, frame, {**_record(out, rng, att), "processing_ms": processing_ms,
+                                    "capture_size": [frame.shape[1], frame.shape[0]],
                                     "pose_sent_t": send_time, "telemetry_age_s": ages})
             n += 1
             if a.show:
@@ -141,6 +155,7 @@ def cmd_run(a):
 def _run_meta(a, pipe):
     tracker = pipe.vo.tracker
     return {"tracker": a.tracker, "checkpoint_sha256": tracker.checkpoint_hash if tracker else None,
+            "association": a.association if tracker else "klt", "pnp_reproj_px": pipe.vo.cfg.pnp_reproj_px,
             "landmark_gap_s": a.landmark_gap, "opencv_seed": a.seed, "width": pipe.cam.width}
 
 
@@ -155,7 +170,9 @@ def cmd_replay(a):
     out_path = Path(a.output) if a.output else Path(a.run) / f"replay-{name}-seed{a.seed}.jsonl"
     n = 0
     with out_path.open("x") as f:
-        for t, gray, rng, att in replay_records(a.run):
+        for t, gray, rng, att in replay_records(a.run, cam.width):
+            if gray.shape != (cam.height, cam.width):
+                raise ValueError("Recording aspect ratio differs from calibration")
             start = time.monotonic()
             out = pipe.step(gray, t, rng, att)
             f.write(json.dumps({"t": t, **_record(out, rng, att), **meta,
@@ -185,10 +202,12 @@ def main(argv=None):
     def common(p):
         p.add_argument("--tracker", choices=("klt", "orb", "xfeat"), default="klt")
         p.add_argument("--checkpoint", type=Path)
+        p.add_argument("--association", choices=("hybrid", "descriptor"), default="hybrid")
         p.add_argument("--xfeat-source", type=Path, default=Path("runs/xfeat-upstream"))
         p.add_argument("--device", default="cpu")
         p.add_argument("--landmark-gap", type=float, default=0.5)
         p.add_argument("--seed", type=int, default=1)
+        p.add_argument("--reproj-px", type=float, help="PnP threshold in pixels at equivalent 320 px width")
         p.add_argument("--camera", required=True, help="camera JSON from kxvo calibrate")
         p.add_argument("--width", type=int, default=320, help="processing width in pixels")
         p.add_argument("--camera-offset", type=float, nargs=3, default=[0.03, 0.0, 0.0], metavar=("X", "Y", "Z"),
@@ -207,6 +226,8 @@ def main(argv=None):
                    help="max publish rate; 10 Hz compact is about 0.5 kB/s, sized for ELRS links")
     r.add_argument("--full-covariance", action="store_true",
                    help="send VO covariance (about 1.3 kB/s at 10 Hz; Wi-Fi or USB links only)")
+    r.add_argument("--record-format", choices=("npy", "png"), default="npy",
+                   help="Lossless source frame format for live recordings")
     r.add_argument("--record", help="directory to save frames and log for replay")
     r.add_argument("--show", action="store_true")
     r.set_defaults(fn=cmd_run)

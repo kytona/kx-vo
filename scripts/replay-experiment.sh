@@ -12,7 +12,7 @@ shift 3
 python_bin="${KXVO_PYTHON:-.venv/bin/python}"
 width="${KXVO_WIDTH:-320}"
 mkdir -p "$results"
-for seed in 1 2 3; do
+for seed in "${KXVO_REPLAY_SEED:-1}"; do
     for tracker in klt orb; do
         "$python_bin" -m kxvo.cli replay --camera "$camera" --width "$width" \
             --tracker "$tracker" --seed "$seed" --output "$results/$tracker-$seed.jsonl" "$run"
