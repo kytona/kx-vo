@@ -55,14 +55,15 @@ class Recorder:
     def __init__(self, out_dir: str | Path, save_frames: bool = True):
         self.dir = Path(out_dir)
         (self.dir / "frames").mkdir(parents=True, exist_ok=True)
-        self.log = (self.dir / "log.jsonl").open("a")
+        self.log = (self.dir / "log.jsonl").open("x")
         self.save_frames = save_frames
         self.i = 0
 
     def write(self, t: float, gray, record: dict):
         name = f"{self.i:06d}.png"
         if self.save_frames and gray is not None:
-            cv2.imwrite(str(self.dir / "frames" / name), gray)
+            if not cv2.imwrite(str(self.dir / "frames" / name), gray):
+                raise OSError(f"Could not save frame {name}")
         record = {"i": self.i, "t": t, "frame": name if self.save_frames else None, **record}
         self.log.write(json.dumps(record) + "\n")
         self.i += 1
@@ -80,5 +81,7 @@ def replay_records(run_dir: str | Path):
             if not rec.get("frame"):
                 continue
             gray = cv2.imread(str(run_dir / "frames" / rec["frame"]), cv2.IMREAD_GRAYSCALE)
+            if gray is None:
+                raise ValueError(f"Missing or unreadable recorded frame: {rec['frame']}")
             att = tuple(rec["att"]) if rec.get("att") else None
             yield rec["t"], gray, rec.get("range_m"), att

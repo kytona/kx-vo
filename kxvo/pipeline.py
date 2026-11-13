@@ -44,10 +44,10 @@ class Pipeline:
     """
 
     def __init__(self, camera: Camera, mount: Mount | None = None, config: VOConfig | None = None,
-                 base_sigma_m: float = 0.05):
+                 base_sigma_m: float = 0.05, tracker=None):
         self.cam = camera
         self.mount = mount or Mount()
-        self.vo = MonoVO(camera, config)
+        self.vo = MonoVO(camera, config, tracker)
         self.R_BC = camera_to_body(camera.uptilt_deg)
         self.base_sigma = base_sigma_m
         self.started = False

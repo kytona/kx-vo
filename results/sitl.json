@@ -1,0 +1,267 @@
+{
+  "verified-truth": {
+    "setup": {
+      "binary_sha256": "4f7f2cd60e62780a451a221784e96eb8d858480f23ae20962e84a15b6666a288",
+      "params_sha256": "07b652f4296bcb388d90835e55a70cbe3dbcb44a878d1622ab4c67f26bc8aa62",
+      "delay_ms": 0,
+      "jitter_ms": 0,
+      "drop": 0,
+      "uplink_bps": 1250,
+      "exposure_ms": 0,
+      "blackout_seconds": 0
+    },
+    "result": {
+      "mode": "truth fixture",
+      "tracker": "klt",
+      "checkpoint_sha256": null,
+      "phase": "landed-and-disarmed",
+      "frames": 486,
+      "valid_frames": 293,
+      "dropped": 0,
+      "poses_sent": 134,
+      "pose_bytes": 5896,
+      "external_nav_message_after_switch": false,
+      "statuses_after_switch": [
+        "EKF3 IMU0 yaw aligned",
+        "EKF3 IMU1 yaw aligned",
+        "SIM Hit ground at 0.475626 m/s",
+        "Disarming motors"
+      ],
+      "dataflash": {
+        "secondary_samples": 352,
+        "vision_received": 134,
+        "vision_accepted": 134,
+        "secondary_horizontal_innovation_samples": 338,
+        "land_mode": true
+      }
+    }
+  },
+  "verified-klt": {
+    "setup": {
+      "binary_sha256": "4f7f2cd60e62780a451a221784e96eb8d858480f23ae20962e84a15b6666a288",
+      "params_sha256": "07b652f4296bcb388d90835e55a70cbe3dbcb44a878d1622ab4c67f26bc8aa62",
+      "delay_ms": 0,
+      "jitter_ms": 0,
+      "drop": 0,
+      "uplink_bps": 1250,
+      "exposure_ms": 0,
+      "blackout_seconds": 0
+    },
+    "result": {
+      "mode": "live kx-vo",
+      "tracker": "klt",
+      "checkpoint_sha256": null,
+      "phase": "landed-and-disarmed",
+      "frames": 575,
+      "valid_frames": 284,
+      "dropped": 0,
+      "poses_sent": 78,
+      "pose_bytes": 3432,
+      "external_nav_message_after_switch": false,
+      "statuses_after_switch": [
+        "EKF3 IMU0 yaw aligned",
+        "EKF3 IMU1 yaw aligned",
+        "SIM Hit ground at 0.492708 m/s",
+        "Disarming motors"
+      ],
+      "dataflash": {
+        "secondary_samples": 360,
+        "vision_received": 78,
+        "vision_accepted": 78,
+        "secondary_horizontal_innovation_samples": 214,
+        "land_mode": true
+      }
+    }
+  },
+  "verified-xfeat": {
+    "setup": {
+      "binary_sha256": "4f7f2cd60e62780a451a221784e96eb8d858480f23ae20962e84a15b6666a288",
+      "params_sha256": "07b652f4296bcb388d90835e55a70cbe3dbcb44a878d1622ab4c67f26bc8aa62",
+      "delay_ms": 0,
+      "jitter_ms": 0,
+      "drop": 0,
+      "uplink_bps": 1250,
+      "exposure_ms": 0,
+      "blackout_seconds": 0
+    },
+    "result": {
+      "mode": "live kx-vo",
+      "tracker": "xfeat",
+      "checkpoint_sha256": "0f5187fd7bedd26c7fe6acc9685444493a165a35ecc087b33c2db3627f3ea10b",
+      "phase": "landed-and-disarmed",
+      "frames": 519,
+      "valid_frames": 427,
+      "dropped": 0,
+      "poses_sent": 149,
+      "pose_bytes": 6556,
+      "external_nav_message_after_switch": false,
+      "statuses_after_switch": [
+        "EKF3 IMU1 yaw aligned",
+        "EKF3 IMU0 yaw aligned",
+        "SIM Hit ground at 0.478728 m/s",
+        "Disarming motors"
+      ],
+      "dataflash": {
+        "secondary_samples": 440,
+        "vision_received": 149,
+        "vision_accepted": 149,
+        "secondary_horizontal_innovation_samples": 435,
+        "land_mode": true
+      }
+    }
+  },
+  "verified-tuned": {
+    "setup": {
+      "binary_sha256": "4f7f2cd60e62780a451a221784e96eb8d858480f23ae20962e84a15b6666a288",
+      "params_sha256": "07b652f4296bcb388d90835e55a70cbe3dbcb44a878d1622ab4c67f26bc8aa62",
+      "delay_ms": 0,
+      "jitter_ms": 0,
+      "drop": 0,
+      "uplink_bps": 1250,
+      "exposure_ms": 0,
+      "blackout_seconds": 0
+    },
+    "result": {
+      "mode": "live kx-vo",
+      "tracker": "xfeat",
+      "checkpoint_sha256": "c58344d2e79f960a7c0095ed4e4e8d15e823577b52f7f120a2fee0adf1dda43f",
+      "phase": "landed-and-disarmed",
+      "frames": 488,
+      "valid_frames": 305,
+      "dropped": 0,
+      "poses_sent": 113,
+      "pose_bytes": 4972,
+      "external_nav_message_after_switch": false,
+      "statuses_after_switch": [
+        "EKF3 IMU0 yaw aligned",
+        "EKF3 IMU1 yaw aligned",
+        "SIM Hit ground at 0.466819 m/s",
+        "Disarming motors"
+      ],
+      "dataflash": {
+        "secondary_samples": 436,
+        "vision_received": 113,
+        "vision_accepted": 113,
+        "secondary_horizontal_innovation_samples": 422,
+        "land_mode": true
+      }
+    }
+  },
+  "verified-link-v2": {
+    "setup": {
+      "binary_sha256": "4f7f2cd60e62780a451a221784e96eb8d858480f23ae20962e84a15b6666a288",
+      "params_sha256": "07b652f4296bcb388d90835e55a70cbe3dbcb44a878d1622ab4c67f26bc8aa62",
+      "delay_ms": 80.0,
+      "jitter_ms": 15.0,
+      "drop": 0.1,
+      "uplink_bps": 1250,
+      "downlink_bps": 1250.0,
+      "exposure_ms": 12.0,
+      "blackout_seconds": 1.0
+    },
+    "result": {
+      "mode": "live kx-vo",
+      "tracker": "klt",
+      "checkpoint_sha256": null,
+      "phase": "translate",
+      "frames": 6,
+      "valid_frames": 0,
+      "dropped": 1082,
+      "poses_sent": 0,
+      "pose_bytes": 0,
+      "downlink_dropped": 2024,
+      "external_nav_message_after_switch": false,
+      "statuses_after_switch": [],
+      "dataflash": {
+        "secondary_samples": 0,
+        "vision_received": 0,
+        "vision_accepted": 0,
+        "secondary_horizontal_innovation_samples": 0,
+        "land_mode": false
+      }
+    }
+  },
+  "verified-link-v3": {
+    "setup": {
+      "binary_sha256": "4f7f2cd60e62780a451a221784e96eb8d858480f23ae20962e84a15b6666a288",
+      "params_sha256": "07b652f4296bcb388d90835e55a70cbe3dbcb44a878d1622ab4c67f26bc8aa62",
+      "delay_ms": 80.0,
+      "jitter_ms": 15.0,
+      "drop": 0.1,
+      "uplink_bps": 1250,
+      "downlink_bps": 1250.0,
+      "exposure_ms": 12.0,
+      "blackout_seconds": 1.0
+    },
+    "result": {
+      "mode": "live kx-vo",
+      "tracker": "klt",
+      "checkpoint_sha256": null,
+      "phase": "landed-and-disarmed",
+      "frames": 451,
+      "valid_frames": 58,
+      "dropped": 120,
+      "poses_sent": 20,
+      "pose_bytes": 880,
+      "downlink_dropped": 0,
+      "peak_frame_queue": 5,
+      "fallback_commanded": true,
+      "external_nav_message_after_switch": false,
+      "statuses_after_switch": [
+        "EKF3 IMU1 yaw aligned",
+        "EKF3 IMU0 yaw aligned",
+        "SIM Hit ground at 0.494481 m/s",
+        "Disarming motors"
+      ],
+      "dataflash": {
+        "secondary_samples": 48,
+        "vision_received": 20,
+        "vision_accepted": 20,
+        "secondary_horizontal_innovation_samples": 2,
+        "land_mode": true
+      }
+    }
+  },
+  "verified-outlier": {
+    "setup": {
+      "binary_sha256": "4f7f2cd60e62780a451a221784e96eb8d858480f23ae20962e84a15b6666a288",
+      "params_sha256": "07b652f4296bcb388d90835e55a70cbe3dbcb44a878d1622ab4c67f26bc8aa62",
+      "delay_ms": 0,
+      "jitter_ms": 0,
+      "drop": 0,
+      "uplink_bps": 1250,
+      "downlink_bps": 0,
+      "exposure_ms": 0,
+      "blackout_seconds": 0,
+      "outlier_m": 5.0
+    },
+    "result": {
+      "mode": "live kx-vo",
+      "tracker": "klt",
+      "checkpoint_sha256": null,
+      "phase": "land-commanded",
+      "frames": 1092,
+      "valid_frames": 810,
+      "dropped": 0,
+      "poses_sent": 224,
+      "pose_bytes": 9856,
+      "outlier_injected": true,
+      "downlink_dropped": 0,
+      "peak_frame_queue": 1,
+      "fallback_commanded": false,
+      "external_nav_message_after_switch": false,
+      "statuses_after_switch": [
+        "EKF3 IMU1 yaw aligned",
+        "EKF3 IMU0 yaw aligned",
+        "SIM Hit ground at 0.676693 m/s"
+      ],
+      "dataflash": {
+        "secondary_samples": 618,
+        "vision_received": 224,
+        "vision_accepted": 224,
+        "secondary_horizontal_innovation_samples": 335,
+        "land_mode": true
+      }
+    }
+  }
+}

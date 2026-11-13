@@ -1,0 +1,132 @@
+{
+  "runs/fixture-replay/blur/replay-klt-seed1.jsonl": {
+    "frames": 720,
+    "reference_covered_frames": 720,
+    "valid_covered_frames": 719,
+    "reset_changes": 0,
+    "initialization_s": 0.03333333333333333,
+    "processing_ms_p50_p95": [
+      4.3234369950369,
+      6.209387513808906
+    ],
+    "outage_count": 0,
+    "outage_s": 0.0,
+    "unavailable_s": 0.03333333333333333,
+    "alignment_window_s": [
+      1.0,
+      2.0
+    ],
+    "horizontal_rms_m": 0.21271604880167067,
+    "yaw_rms_deg": 0.8836682063923454,
+    "endpoint_error_m": 0.36040656946571803,
+    "path_m": 8.577403197347017,
+    "endpoint_error_pct": 4.201814478969479,
+    "relative_pairs": 509,
+    "relative_translation_m_median": 0.10756230752089681,
+    "relative_yaw_deg_median": 0.5381903966705718
+  },
+  "runs/fixture-replay/blur/replay-orb-seed1.jsonl": {
+    "frames": 720,
+    "reference_covered_frames": 720,
+    "valid_covered_frames": 599,
+    "reset_changes": 0,
+    "initialization_s": 0.03333333333333333,
+    "processing_ms_p50_p95": [
+      7.525875000283122,
+      28.110562474466846
+    ],
+    "outage_count": 2,
+    "outage_s": 3.166666666666667,
+    "unavailable_s": 4.0333333333333306,
+    "alignment_window_s": [
+      1.0,
+      2.0
+    ],
+    "horizontal_rms_m": 2.181934703541485,
+    "yaw_rms_deg": 97.1082402364441,
+    "endpoint_error_m": 1.8745394593426774,
+    "path_m": 8.577403197347017,
+    "endpoint_error_pct": 21.8543936458819,
+    "relative_pairs": 401,
+    "relative_translation_m_median": 1.4626609173451335,
+    "relative_yaw_deg_median": 14.229543805101878
+  },
+  "runs/fixture-replay/blur/replay-xfeat-0f5187fd7bed-seed1.jsonl": {
+    "frames": 720,
+    "reference_covered_frames": 720,
+    "valid_covered_frames": 685,
+    "reset_changes": 0,
+    "initialization_s": 0.03333333333333333,
+    "processing_ms_p50_p95": [
+      31.0818959842436,
+      60.14859402202998
+    ],
+    "outage_count": 0,
+    "outage_s": 0.0,
+    "unavailable_s": 1.1666666666666663,
+    "alignment_window_s": [
+      1.0,
+      2.0
+    ],
+    "horizontal_rms_m": 1.7660634077545394,
+    "yaw_rms_deg": 18.159809554804944,
+    "endpoint_error_m": 1.143623270174195,
+    "path_m": 8.577403197347017,
+    "endpoint_error_pct": 13.332977870597439,
+    "relative_pairs": 460,
+    "relative_translation_m_median": 1.1244240584649878,
+    "relative_yaw_deg_median": 8.250887309938774
+  },
+  "runs/fixture-replay/blur/replay-xfeat-89409869a0ee-seed1.jsonl": {
+    "frames": 720,
+    "reference_covered_frames": 720,
+    "valid_covered_frames": 626,
+    "reset_changes": 0,
+    "initialization_s": 0.03333333333333333,
+    "processing_ms_p50_p95": [
+      31.017125002108514,
+      59.99105480150319
+    ],
+    "outage_count": 1,
+    "outage_s": 0.7333333333333325,
+    "unavailable_s": 3.1333333333333226,
+    "alignment_window_s": [
+      1.0,
+      2.0
+    ],
+    "horizontal_rms_m": 1.4249995743718622,
+    "yaw_rms_deg": 20.86204864067808,
+    "endpoint_error_m": 1.1050793249962847,
+    "path_m": 8.577403197347017,
+    "endpoint_error_pct": 12.883611736219706,
+    "relative_pairs": 364,
+    "relative_translation_m_median": 0.9663576410696662,
+    "relative_yaw_deg_median": 19.11378578493363
+  },
+  "runs/fixture-replay/blur/replay-xfeat-c58344d2e79f-seed1.jsonl": {
+    "frames": 720,
+    "reference_covered_frames": 720,
+    "valid_covered_frames": 692,
+    "reset_changes": 0,
+    "initialization_s": 0.03333333333333333,
+    "processing_ms_p50_p95": [
+      31.498021038714796,
+      62.51655975356695
+    ],
+    "outage_count": 1,
+    "outage_s": 0.33333333333333304,
+    "unavailable_s": 0.9333333333333315,
+    "alignment_window_s": [
+      1.0,
+      2.0
+    ],
+    "horizontal_rms_m": 1.7351685276427267,
+    "yaw_rms_deg": 36.06352239814605,
+    "endpoint_error_m": 1.0880885113315533,
+    "path_m": 8.577403197347017,
+    "endpoint_error_pct": 12.685523652054716,
+    "relative_pairs": 482,
+    "relative_translation_m_median": 1.1741810248572657,
+    "relative_yaw_deg_median": 18.300089616742415
+  }
+}

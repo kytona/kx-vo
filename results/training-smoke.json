@@ -1,0 +1,178 @@
+{
+  "seed-1": {
+    "validation": [
+      {
+        "step": 0,
+        "clean": {
+          "precision": 0.8658536585365854,
+          "recall": 0.5266351989211059,
+          "correct": 781,
+          "matches": 902,
+          "visible": 1483
+        },
+        "blur": {
+          "precision": 0.7791666666666667,
+          "recall": 0.3858321870701513,
+          "correct": 561,
+          "matches": 720,
+          "visible": 1454
+        }
+      },
+      {
+        "step": 1,
+        "loss": 1.521113634109497,
+        "seconds": 0.9296090409625322,
+        "sha256": "f511a47958436243848476b76f7be0af9728dce4667284dcdc7fa96dc87aac0b",
+        "selected": true,
+        "clean": {
+          "precision": 0.8695187165775401,
+          "recall": 0.5482130815913688,
+          "correct": 813,
+          "matches": 935,
+          "visible": 1483
+        },
+        "blur": {
+          "precision": 0.7746113989637305,
+          "recall": 0.4107142857142857,
+          "correct": 598,
+          "matches": 772,
+          "visible": 1456
+        }
+      },
+      {
+        "step": 2,
+        "loss": 1.809273600578308,
+        "seconds": 1.5642357500037178,
+        "sha256": "db940a2be0b3e831efaa4ba6e48693e1bc4894e3b8bd11992d1f9dc16d7ebc35",
+        "selected": true,
+        "clean": {
+          "precision": 0.8756530825496343,
+          "recall": 0.5627938213566152,
+          "correct": 838,
+          "matches": 957,
+          "visible": 1489
+        },
+        "blur": {
+          "precision": 0.7872340425531915,
+          "recall": 0.43052703627652295,
+          "correct": 629,
+          "matches": 799,
+          "visible": 1461
+        }
+      },
+      {
+        "step": 3,
+        "loss": 1.6957217454910278,
+        "seconds": 2.461369707947597,
+        "sha256": "c58344d2e79f960a7c0095ed4e4e8d15e823577b52f7f120a2fee0adf1dda43f",
+        "selected": true,
+        "clean": {
+          "precision": 0.869475847893114,
+          "recall": 0.5677852348993289,
+          "correct": 846,
+          "matches": 973,
+          "visible": 1490
+        },
+        "blur": {
+          "precision": 0.7851037851037851,
+          "recall": 0.4395078605604921,
+          "correct": 643,
+          "matches": 819,
+          "visible": 1463
+        }
+      }
+    ],
+    "selected": {
+      "checkpoint": "step-3.pt",
+      "sha256": "c58344d2e79f960a7c0095ed4e4e8d15e823577b52f7f120a2fee0adf1dda43f"
+    }
+  },
+  "seed-2": {
+    "validation": [
+      {
+        "step": 0,
+        "clean": {
+          "precision": 0.8658536585365854,
+          "recall": 0.5266351989211059,
+          "correct": 781,
+          "matches": 902,
+          "visible": 1483
+        },
+        "blur": {
+          "precision": 0.7791666666666667,
+          "recall": 0.3858321870701513,
+          "correct": 561,
+          "matches": 720,
+          "visible": 1454
+        }
+      },
+      {
+        "step": 1,
+        "loss": 2.171842098236084,
+        "seconds": 0.7162362079834566,
+        "sha256": "c5a0c9b70ae67ecbe8561951f2c4cf1de296fa00561738335366333d01ea4a6d",
+        "selected": true,
+        "clean": {
+          "precision": 0.8694714131607335,
+          "recall": 0.5427609427609428,
+          "correct": 806,
+          "matches": 927,
+          "visible": 1485
+        },
+        "blur": {
+          "precision": 0.7762148337595908,
+          "recall": 0.4160383824537354,
+          "correct": 607,
+          "matches": 782,
+          "visible": 1459
+        }
+      },
+      {
+        "step": 2,
+        "loss": 1.2817585468292236,
+        "seconds": 1.3094572079135105,
+        "sha256": "a78ebf94ba4cf8d9a2a553857941948aaed29cff2abbbbe9871471188520b3c2",
+        "selected": true,
+        "clean": {
+          "precision": 0.8760504201680672,
+          "recall": 0.5612382234185733,
+          "correct": 834,
+          "matches": 952,
+          "visible": 1486
+        },
+        "blur": {
+          "precision": 0.7868649318463445,
+          "recall": 0.4346338124572211,
+          "correct": 635,
+          "matches": 807,
+          "visible": 1461
+        }
+      },
+      {
+        "step": 3,
+        "loss": 0.869920015335083,
+        "seconds": 2.0420581250218675,
+        "sha256": "89409869a0eeec2ae471d5d47fd1e21980d075accae7e11843d5268652dc195a",
+        "selected": true,
+        "clean": {
+          "precision": 0.8791322314049587,
+          "recall": 0.5707578806170356,
+          "correct": 851,
+          "matches": 968,
+          "visible": 1491
+        },
+        "blur": {
+          "precision": 0.783816425120773,
+          "recall": 0.4427012278308322,
+          "correct": 649,
+          "matches": 828,
+          "visible": 1466
+        }
+      }
+    ],
+    "selected": {
+      "checkpoint": "step-3.pt",
+      "sha256": "89409869a0eeec2ae471d5d47fd1e21980d075accae7e11843d5268652dc195a"
+    }
+  }
+}

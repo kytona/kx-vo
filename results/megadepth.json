@@ -1,0 +1,31 @@
+{
+  "pairs": 1500,
+  "seed": 1,
+  "ransac_px": 2.5,
+  "results": {
+    "original": {
+      "checkpoint_sha256": "0f5187fd7bedd26c7fe6acc9685444493a165a35ecc087b33c2db3627f3ea10b",
+      "auc_percent": {
+        "5": 43.6,
+        "10": 57.2,
+        "20": 68.2
+      }
+    },
+    "smoke-seed1": {
+      "checkpoint_sha256": "c58344d2e79f960a7c0095ed4e4e8d15e823577b52f7f120a2fee0adf1dda43f",
+      "auc_percent": {
+        "5": 42.7,
+        "10": 56.5,
+        "20": 67.5
+      }
+    },
+    "smoke-seed2": {
+      "checkpoint_sha256": "89409869a0eeec2ae471d5d47fd1e21980d075accae7e11843d5268652dc195a",
+      "auc_percent": {
+        "5": 42.4,
+        "10": 55.8,
+        "20": 67.0
+      }
+    }
+  }
+}

@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import sys
 import time
 from pathlib import Path
 
@@ -28,14 +27,29 @@ def cmd_synth(a):
 
 
 def _pipeline(a):
+    import cv2
+
     from .camera import Camera
     from .pipeline import Mount, Pipeline
+
+    cv2.setRNGSeed(a.seed)
 
     cam = Camera.load(a.camera)
     if cam.width != a.width:
         cam = cam.scaled(a.width)
     mount = Mount(camera_B=tuple(a.camera_offset), rangefinder_B=tuple(a.range_offset))
-    return cam, Pipeline(cam, mount)
+    tracker = None
+    if a.checkpoint and a.tracker != "xfeat":
+        raise SystemExit("--checkpoint requires --tracker xfeat")
+    if not 0 <= a.landmark_gap <= 2:
+        raise SystemExit("--landmark-gap must be between 0 and 2 seconds")
+    if a.tracker != "klt":
+        from .trackers import DescriptorTracker
+        try:
+            tracker = DescriptorTracker(a.tracker, 300, a.checkpoint, a.xfeat_source, a.device, a.landmark_gap)
+        except (ValueError, RuntimeError, OSError) as exc:
+            raise SystemExit(str(exc)) from exc
+    return cam, Pipeline(cam, mount, tracker=tracker)
 
 
 def _record(out, rng, att):
@@ -45,13 +59,23 @@ def _record(out, rng, att):
         "p": [round(float(v), 4) for v in p], "rpy": [round(float(v), 5) for v in out.rpy],
         "tracks": out.vo.n_tracks, "landmarks": out.vo.n_landmarks, "inliers": out.vo.n_inliers,
         "reset": out.reset_counter, "sigma": round(out.pos_sigma_m, 3),
-        "range_m": rng, "att": list(att) if att else None,
+        "range_m": rng, "att": list(att) if att else None, "tracking": out.vo.info,
     }
+
+
+def can_publish_pose(valid, distance, attitude, capture_t, now, max_age):
+    return (valid and distance is not None and math.isfinite(distance) and distance > 0
+            and attitude is not None and all(map(math.isfinite, attitude))
+            and 0 <= now - capture_t <= max_age)
 
 
 def cmd_run(a):
     from .video import Recorder, VideoSource
 
+    if a.send and (not a.mavlink or not a.video.isdigit()):
+        raise SystemExit("--send requires live capture and --mavlink")
+    if not 0 < a.max_frame_age_ms <= 250 or not 0 < a.send_hz <= 10:
+        raise SystemExit("Use send rate in (0, 10] Hz and frame age in (0, 250] ms")
     cam, pipe = _pipeline(a)
     video = VideoSource(a.video, cam.width, a.video_latency_ms / 1000.0)
     mav = None
@@ -59,8 +83,9 @@ def cmd_run(a):
         from .mav import MavLink
         mav = MavLink(a.mavlink)
     rec = Recorder(a.record) if a.record else None
-    if a.send and mav is None:
-        sys.exit("--send needs --mavlink")
+    meta = _run_meta(a, pipe)
+    if rec:
+        (rec.dir / "metadata.json").write_text(json.dumps(meta, indent=2) + "\n")
     print("kxvo running. Ctrl-C to stop." + ("" if a.send else " Not sending to the FC (add --send)."))
     n, t0, sent = 0, time.monotonic(), 0
     next_send = 0.0
@@ -70,18 +95,23 @@ def cmd_run(a):
             t, gray, frame = video.read()
             if gray is None:
                 break
-            att, rng = mav.snapshot() if mav else (None, None)
+            att, rng, ages = mav.snapshot_with_ages() if mav else (None, None, {})
             if mav:
                 mav.heartbeat()
+            start = time.monotonic()
             out = pipe.step(gray, t, rng, att)
+            processing_ms = (time.monotonic() - start) * 1000
+            send_time = None
             now = time.monotonic()
-            if a.send and out.valid and rng is not None and now >= next_send:
+            if a.send and now >= next_send and can_publish_pose(out.valid, rng, att, t, now, a.max_frame_age_ms / 1000):
                 mav.send_pose(t, out.p_WB, out.rpy, out.pos_sigma_m, out.reset_counter,
                               compact=not a.full_covariance)
+                send_time = time.monotonic()
                 sent += 1
                 next_send = now + period
             if rec:
-                rec.write(t, gray, _record(out, rng, att))
+                rec.write(t, gray, {**_record(out, rng, att), "processing_ms": processing_ms,
+                                    "pose_sent_t": send_time, "telemetry_age_s": ages})
             n += 1
             if a.show:
                 import cv2
@@ -108,16 +138,28 @@ def cmd_run(a):
             mav.close()
 
 
+def _run_meta(a, pipe):
+    tracker = pipe.vo.tracker
+    return {"tracker": a.tracker, "checkpoint_sha256": tracker.checkpoint_hash if tracker else None,
+            "landmark_gap_s": a.landmark_gap, "opencv_seed": a.seed, "width": pipe.cam.width}
+
+
 def cmd_replay(a):
     from .video import replay_records
 
     cam, pipe = _pipeline(a)
-    out_path = Path(a.run) / "kxvo_replay.jsonl"
+    meta = _run_meta(a, pipe)
+    name = meta["tracker"]
+    if meta["checkpoint_sha256"]:
+        name += "-" + meta["checkpoint_sha256"][:12]
+    out_path = Path(a.output) if a.output else Path(a.run) / f"replay-{name}-seed{a.seed}.jsonl"
     n = 0
-    with out_path.open("w") as f:
+    with out_path.open("x") as f:
         for t, gray, rng, att in replay_records(a.run):
+            start = time.monotonic()
             out = pipe.step(gray, t, rng, att)
-            f.write(json.dumps({"t": t, **_record(out, rng, att)}) + "\n")
+            f.write(json.dumps({"t": t, **_record(out, rng, att), **meta,
+                                "processing_ms": (time.monotonic() - start) * 1000}) + "\n")
             n += 1
     print(f"replayed {n} frames -> {out_path}")
 
@@ -141,6 +183,12 @@ def main(argv=None):
     s.set_defaults(fn=cmd_synth)
 
     def common(p):
+        p.add_argument("--tracker", choices=("klt", "orb", "xfeat"), default="klt")
+        p.add_argument("--checkpoint", type=Path)
+        p.add_argument("--xfeat-source", type=Path, default=Path("runs/xfeat-upstream"))
+        p.add_argument("--device", default="cpu")
+        p.add_argument("--landmark-gap", type=float, default=0.5)
+        p.add_argument("--seed", type=int, default=1)
         p.add_argument("--camera", required=True, help="camera JSON from kxvo calibrate")
         p.add_argument("--width", type=int, default=320, help="processing width in pixels")
         p.add_argument("--camera-offset", type=float, nargs=3, default=[0.03, 0.0, 0.0], metavar=("X", "Y", "Z"),
@@ -153,6 +201,7 @@ def main(argv=None):
     r.add_argument("--video", default="0", help="capture index (HDMI dongle) or file path")
     r.add_argument("--video-latency-ms", type=float, default=0.0)
     r.add_argument("--mavlink", help="e.g. udpin:0.0.0.0:14550 or /dev/cu.usbmodem1:460800")
+    r.add_argument("--max-frame-age-ms", type=float, default=200.0)
     r.add_argument("--send", action="store_true", help="publish VISION_POSITION_ESTIMATE to the FC")
     r.add_argument("--send-hz", type=float, default=10.0,
                    help="max publish rate; 10 Hz compact is about 0.5 kB/s, sized for ELRS links")
@@ -165,6 +214,7 @@ def main(argv=None):
     p = sub.add_parser("replay", help="rerun VO on a recorded run directory")
     common(p)
     p.add_argument("run")
+    p.add_argument("--output")
     p.set_defaults(fn=cmd_replay)
 
     c = sub.add_parser("calibrate", help="checkerboard calibration through the real video path")

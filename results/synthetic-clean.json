@@ -1,0 +1,132 @@
+{
+  "runs/fixture-replay/clean/replay-klt-seed1.jsonl": {
+    "frames": 720,
+    "reference_covered_frames": 720,
+    "valid_covered_frames": 719,
+    "reset_changes": 0,
+    "initialization_s": 0.03333333333333333,
+    "processing_ms_p50_p95": [
+      4.3732295162044466,
+      6.235458404989911
+    ],
+    "outage_count": 0,
+    "outage_s": 0.0,
+    "unavailable_s": 0.03333333333333333,
+    "alignment_window_s": [
+      1.0,
+      2.0
+    ],
+    "horizontal_rms_m": 0.18819755480742392,
+    "yaw_rms_deg": 1.8039788659692604,
+    "endpoint_error_m": 0.30931812939398023,
+    "path_m": 8.577403197347017,
+    "endpoint_error_pct": 3.606197846565637,
+    "relative_pairs": 509,
+    "relative_translation_m_median": 0.09358897338744157,
+    "relative_yaw_deg_median": 0.8541886744114742
+  },
+  "runs/fixture-replay/clean/replay-orb-seed1.jsonl": {
+    "frames": 720,
+    "reference_covered_frames": 720,
+    "valid_covered_frames": 554,
+    "reset_changes": 0,
+    "initialization_s": 0.03333333333333333,
+    "processing_ms_p50_p95": [
+      7.381312025245279,
+      42.21208271919744
+    ],
+    "outage_count": 2,
+    "outage_s": 3.666666666666667,
+    "unavailable_s": 5.533333333333334,
+    "alignment_window_s": [
+      1.0,
+      2.0
+    ],
+    "horizontal_rms_m": 2.455706138447823,
+    "yaw_rms_deg": 133.05624716193518,
+    "endpoint_error_m": 1.4834483784011518,
+    "path_m": 8.577403197347017,
+    "endpoint_error_pct": 17.294842556310996,
+    "relative_pairs": 353,
+    "relative_translation_m_median": 1.5648520382532902,
+    "relative_yaw_deg_median": 15.281268843407982
+  },
+  "runs/fixture-replay/clean/replay-xfeat-0f5187fd7bed-seed1.jsonl": {
+    "frames": 720,
+    "reference_covered_frames": 720,
+    "valid_covered_frames": 686,
+    "reset_changes": 0,
+    "initialization_s": 0.03333333333333333,
+    "processing_ms_p50_p95": [
+      36.98002046439797,
+      88.8038210978265
+    ],
+    "outage_count": 0,
+    "outage_s": 0.0,
+    "unavailable_s": 1.133333333333333,
+    "alignment_window_s": [
+      1.0,
+      2.0
+    ],
+    "horizontal_rms_m": 1.6461122972945552,
+    "yaw_rms_deg": 16.72804310472696,
+    "endpoint_error_m": 0.975612689969254,
+    "path_m": 8.577403197347017,
+    "endpoint_error_pct": 11.374219767015383,
+    "relative_pairs": 459,
+    "relative_translation_m_median": 1.0938952810270985,
+    "relative_yaw_deg_median": 10.598027478548687
+  },
+  "runs/fixture-replay/clean/replay-xfeat-89409869a0ee-seed1.jsonl": {
+    "frames": 720,
+    "reference_covered_frames": 720,
+    "valid_covered_frames": 680,
+    "reset_changes": 0,
+    "initialization_s": 0.03333333333333333,
+    "processing_ms_p50_p95": [
+      36.30787506699562,
+      95.04115859162987
+    ],
+    "outage_count": 0,
+    "outage_s": 0.0,
+    "unavailable_s": 1.3333333333333344,
+    "alignment_window_s": [
+      1.0,
+      2.0
+    ],
+    "horizontal_rms_m": 1.5445482118180764,
+    "yaw_rms_deg": 23.783990358571135,
+    "endpoint_error_m": 1.2360430462923926,
+    "path_m": 8.577403197347017,
+    "endpoint_error_pct": 14.410457545877051,
+    "relative_pairs": 453,
+    "relative_translation_m_median": 1.0419448943047391,
+    "relative_yaw_deg_median": 8.342068957602802
+  },
+  "runs/fixture-replay/clean/replay-xfeat-c58344d2e79f-seed1.jsonl": {
+    "frames": 720,
+    "reference_covered_frames": 720,
+    "valid_covered_frames": 692,
+    "reset_changes": 0,
+    "initialization_s": 0.03333333333333333,
+    "processing_ms_p50_p95": [
+      36.8097709142603,
+      87.89964229217726
+    ],
+    "outage_count": 1,
+    "outage_s": 0.2333333333333334,
+    "unavailable_s": 0.9333333333333332,
+    "alignment_window_s": [
+      1.0,
+      2.0
+    ],
+    "horizontal_rms_m": 1.7478935882557782,
+    "yaw_rms_deg": 37.34791069955961,
+    "endpoint_error_m": 1.0719329568487694,
+    "path_m": 8.577403197347017,
+    "endpoint_error_pct": 12.497173470641059,
+    "relative_pairs": 472,
+    "relative_translation_m_median": 1.1825991763031354,
+    "relative_yaw_deg_median": 16.02554425134617
+  }
+}

@@ -93,8 +93,9 @@ class VOResult:
 
 
 class MonoVO:
-    def __init__(self, camera: Camera, config: VOConfig | None = None):
+    def __init__(self, camera: Camera, config: VOConfig | None = None, tracker=None):
         self.cam = camera
+        self.tracker = tracker
         self.cfg = config or VOConfig()
         self.mask = camera.feature_mask()
         self.lk = dict(
@@ -118,7 +119,12 @@ class MonoVO:
         self.reset_counter = 0
         self._clear_tracks()
 
+    _track_fields = ("pts", "kf_pos", "lm", "floor", "verified", "birth_p", "ref_x", "ref_R", "ref_p")
+
     def _clear_tracks(self):
+        self.descriptors = None
+        self.lost_tracks = []
+        self.feature_frame = None
         self.pts = np.empty((0, 2), np.float32)  # pixels, previous frame
         self.kf_pos = np.empty((0, 2), np.float32)  # pixels in the tracking keyframe
         self.lm = np.empty((0, 3))  # world landmark, NaN if none
@@ -134,6 +140,8 @@ class MonoVO:
         self.kf_pos = self.kf_pos[m]
         self.verified, self.birth_p = self.verified[m], self.birth_p[m]
         self.ref_x, self.ref_R, self.ref_p = self.ref_x[m], self.ref_R[m], self.ref_p[m]
+        if self.descriptors is not None:
+            self.descriptors = self.descriptors[m]
 
     def _detect(self, img: np.ndarray):
         mask = self.mask.copy()
@@ -142,10 +150,23 @@ class MonoVO:
         want = self.cfg.max_corners - len(self.pts)
         if want <= 0:
             return
-        new = cv2.goodFeaturesToTrack(img, want, self.cfg.quality, self.cfg.min_distance_px, mask=mask)
-        if new is None:
-            return
-        new = new.reshape(-1, 2).astype(np.float32)
+        if self.tracker is None:
+            new = cv2.goodFeaturesToTrack(img, want, self.cfg.quality, self.cfg.min_distance_px, mask=mask)
+            if new is None:
+                return
+            new = new.reshape(-1, 2).astype(np.float32)
+        else:
+            points, desc = self._features(img)
+            chosen = []
+            for i, (x, y) in enumerate(points.astype(int)):
+                if mask[y, x]:
+                    chosen.append(i)
+                    cv2.circle(mask, (int(x), int(y)), self.cfg.min_distance_px, 0, -1)
+                    if len(chosen) == want:
+                        break
+            new = points[chosen]
+            descriptors = desc[chosen]
+            self.descriptors = descriptors if self.descriptors is None else np.vstack([self.descriptors, descriptors])
         k = len(new)
         self.pts = np.vstack([self.pts, new])
         self.kf_pos = np.vstack([self.kf_pos, new])
@@ -156,6 +177,52 @@ class MonoVO:
         self.ref_x = np.vstack([self.ref_x, self.cam.normalize(new)])
         self.ref_R = np.concatenate([self.ref_R, np.repeat(self.R_WC[None], k, 0)])
         self.ref_p = np.vstack([self.ref_p, np.repeat(self.p_WC[None], k, 0)])
+
+    def _features(self, img):
+        if self.feature_frame is None or self.feature_frame[0] is not img:
+            self.feature_frame = (img, self.tracker.extract(img, self.mask))
+        return self.feature_frame[1]
+
+    def _descriptor_track(self, img, t):
+        points, desc = self._features(img)
+        used = set()
+        if len(self.pts):
+            matches = self.tracker.matches(self.descriptors, desc)
+            kept = np.array([i for i, _ in matches], dtype=int)
+            current = np.array([j for _, j in matches], dtype=int)
+            unmatched = set(range(len(self.pts))) - set(kept)
+            if self.tracker.gap_s > 0:
+                for i in sorted(unmatched):
+                    if self.verified[i] and np.isfinite(self.lm[i]).all():
+                        row = tuple(getattr(self, name)[i].copy() for name in self._track_fields)
+                        self.lost_tracks.append((self.t_last, self.descriptors[i].copy(), row))
+            self._keep(kept)
+            self.pts, self.descriptors = points[current], desc[current]
+            used.update(current.tolist())
+        self.lost_tracks = [entry for entry in self.lost_tracks
+                            if entry[0] is not None and 0 < t - entry[0] <= self.tracker.gap_s][-self.cfg.max_corners:]
+        free = [i for i in range(len(points)) if i not in used]
+        recovered, ages, rejected = set(), [], 0
+        if self.lost_tracks:
+            prior = np.stack([item[1] for item in self.lost_tracks])
+            for i, j in self.tracker.matches(prior, desc[free]):
+                if len(self.pts) >= self.cfg.max_corners:
+                    break
+                last, _, row = self.lost_tracks[i]
+                pred = self.R_WC.T @ (row[2] - self.p_WC - self.vel * min(self.dt_last, 0.2))
+                xy = points[free[j]]
+                ray = self.cam.normalize(xy[None])[0]
+                if pred[2] <= 0 or np.linalg.norm(ray - pred[:2] / pred[2]) * self.cam.focal > 12:
+                    rejected += 1
+                    continue
+                for name, value in zip(self._track_fields, (xy, xy, *row[2:])):
+                    setattr(self, name, np.concatenate([getattr(self, name), np.asarray(value)[None]]))
+                value = desc[free[j]][None]
+                self.descriptors = value if self.descriptors is None else np.vstack([self.descriptors, value])
+                recovered.add(i)
+                ages.append(t - last)
+        self.lost_tracks = [item for i, item in enumerate(self.lost_tracks) if i not in recovered]
+        return {"recovered": len(recovered), "recovery_s": ages, "recovery_rejected": rejected}
 
     def _track(self, img: np.ndarray):
         if not len(self.pts):
@@ -190,6 +257,8 @@ class MonoVO:
 
         if self.prev_img is None:
             self.prev_img = img
+            if self.tracker is not None:
+                self.t_last = obs.t
             if obs.height_m is not None and math.isfinite(obs.height_m):
                 self.z_floor = self.p_WC[2] + obs.height_m
             self._detect(img)
@@ -200,8 +269,16 @@ class MonoVO:
 
         self.dt_last = 0.0 if self.t_last is None else max(0.0, obs.t - self.t_last)
         p_before = self.p_WC.copy()
-        self._track(img)
+        if self.tracker is None:
+            self._track(img)
+        else:
+            info.update(self._descriptor_track(img, obs.t))
         self.prev_img = img
+        if self.tracker is not None:
+            self.t_last = obs.t
+        if self.tracker is not None and len(self.pts) < self.cfg.min_tracks and self.lost_tracks:
+            # Keep the map alive through a short blackout for re-association.
+            return VOResult(obs.t, "recovering", self.R_WC.copy(), self.p_WC.copy(), len(self.pts), info=info)
         if len(self.pts) < self.cfg.min_tracks:
             self.reset_counter += 1
             self._clear_tracks()

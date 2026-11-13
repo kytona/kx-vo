@@ -2,9 +2,9 @@
 
 Camera-only monocular visual odometry for small indoor drones, running on a ground computer. It reads the FPV video feed and the flight controller's rangefinder and attitude, and publishes the drone's position as MAVLink `VISION_POSITION_ESTIMATE` back to the flight controller.
 
-Built for the Kytona FlyTimes 85 HDZero test drone (GOKU F405 HD, MTF-02P flow and range sensor). ArduPilot and the KX Betaflight fork (patch P3) both accept its output.
+Built for the Kytona FlyTimes 85 HDZero test drone (GOKU F405 HD, MTF-02P flow and range sensor). The output is intended for ArduPilot ExternalNav and the KX Betaflight P3 receiver.
 
-**Status: tested on synthetic video only. Not yet run on real footage, in SITL against a flight controller, or in flight.**
+**Status:** The synthetic benchmark and ArduCopter SITL have been exercised. Real FlyTimes capture, receiver fusion and flight remain pending. See [results](results/README.md) for the measured scope.
 
 ## How it works
 
@@ -17,7 +17,7 @@ Monocular VO cannot measure scale. kxvo takes scale from the floor:
 
 The flight controller's attitude is used only to level the start pose and to turn the slant range into vertical height. This is loose use of the FC, not tightly coupled visual-inertial odometry.
 
-kxvo publishes estimates only. It never sends arming, mode or setpoint commands. When it is not confident it stops publishing, and the FC falls back to its own sources on its own timeout.
+kxvo publishes estimates only. The normal live estimator sends pose and telemetry requests. It stops pose publication when its estimate or required inputs are invalid or stale. Verify source switching and recovery on the chosen FC. The separate SITL runner sends flight commands to its own simulator process.
 
 ## Synthetic results
 
@@ -46,7 +46,7 @@ Mac (kxvo) -> data link -> GOKU F405 UART -> ArduPilot VISO / KX Betaflight P3
 GOKU F405 -> data link -> Mac: ATTITUDE, DISTANCE_SENSOR (MTF-02P)
 ```
 
-**Data link without a Wi-Fi board.** kxvo sends compact messages, about 45 bytes each, at up to 10 Hz (`--send-hz`): about 0.5 kB/s, plus attitude and range telemetry coming back.
+**Data link without a Wi-Fi board.** At 10 Hz, compact unsigned MAVLink 2 poses can take about 440 B/s. A nonzero reset counter can keep the covariance extension on the wire, raising this to about 1,290 B/s before other traffic. Measure both cases.
 
 - **ArduPilot:** ELRS MAVLink mode (ELRS 3.5+) on the existing receiver. ExpressLRS recommends it over Airport for MAVLink. Community reports put its throughput at about 1.25 kB/s. It needs an ESP-based transmitter module the Mac can reach over USB or the TX backpack. Check whether the RadioMaster Pocket's internal module qualifies before relying on it.
 - **Both firmwares:** ELRS Airport, a transparent serial link. A second small ESP-based ELRS receiver goes on a spare GOKU UART and an ELRS TX module plugs into the Mac by USB. One community report puts throughput at about 0.5 kB/s, so keep 10 Hz compact or lower the rate.
@@ -68,6 +68,74 @@ Measure the real throughput on the bench before flying.
    kxvo replay --camera flytimes_cam.json runs/shadow1
    ```
 5. **Only after shadow logs agree with ground truth:** load `params/ardupilot_kxvo.parm` (VO as EKF source set 2 on an RC switch, flow stays set 1) or `params/betaflight_kx_extnav.txt`, and add `--send`.
+
+## Reproduce the XFeat experiment
+
+From a fresh clone, create a Python 3.11 virtual environment and install `kxvo[test,xfeat,plots,benchmark,sitl]` in editable mode. The default live estimator only needs the base install. The tested simulator build was native macOS with Xcode Command Line Tools. Activate the environment with `source .venv/bin/activate` before using the bare `kxvo` or `python` commands below.
+
+```sh
+uv venv --python 3.11
+uv pip install -e '.[test,xfeat,plots,benchmark,sitl]'
+.venv/bin/python -m pytest -q
+scripts/setup-xfeat.sh
+KXVO_PYTHON=.venv/bin/python scripts/build-sitl.sh
+```
+
+Start with a synthetic smoke test. It checks the code path from the official checkpoint through training and validation to a reloadable model.
+
+```sh
+.venv/bin/python scripts/make-smoke-data.py runs/my-smoke
+OMP_NUM_THREADS=2 .venv/bin/python -m kxvo.train \
+  --manifest runs/my-smoke/manifest.csv --output runs/my-training \
+  --checkpoint runs/xfeat-upstream/weights/xfeat.pt \
+  --steps 3 --validate-every 1 --width 160 --height 128 --batch 2
+```
+
+For the actual experiment, supply a CSV with `path,split,group,rights` and add camera/calibration and capture provenance columns. Paths are relative to the manifest. Assign whole flight sessions to train, validation and test. Pick dimensions divisible by 32 that preserve the capture aspect ratio. Start with two seeds, use `--device cuda` on a rented CUDA machine if needed, and save the validation logs and selected checkpoint for each seed. A seed can legitimately have no selected checkpoint if it fails the clean-recall or blur-improvement check.
+
+The first training recipe updates the descriptor backbone with warp correspondences. It freezes the sparse detector head, reliability head and fine matcher and skips ALIKE distillation. Report this as a descriptor-only ablation. Record any change to that recipe.
+
+### Replay and score
+
+Use the same camera, mount offsets and recording for all trackers. An XFeat run requires a local `--checkpoint`. Use `--landmark-gap 0` and an explicit `--output` for the no-recovery ablation. Recordings and replays refuse to overwrite existing outputs.
+
+```sh
+kxvo replay --camera runs/my-smoke/camera.json --range-offset 0 0 0 runs/my-smoke/blur
+kxvo replay --camera runs/my-smoke/camera.json --range-offset 0 0 0 \
+  --tracker orb runs/my-smoke/blur
+kxvo replay --camera runs/my-smoke/camera.json --range-offset 0 0 0 \
+  --tracker xfeat --checkpoint runs/xfeat-upstream/weights/xfeat.pt runs/my-smoke/blur
+kxvo replay --camera runs/my-smoke/camera.json --range-offset 0 0 0 \
+  --tracker xfeat --checkpoint runs/my-training/seed-1/step-3.pt runs/my-smoke/blur
+python -m kxvo.score --reference runs/my-smoke/blur/log.jsonl \
+  --output results/my-replay.json --plot results/my-replay.png runs/my-smoke/blur/replay-*.jsonl
+```
+
+For repeated real replay, `scripts/replay-experiment.sh CAMERA_JSON RUN_DIR OUTPUT_DIR CHECKPOINT [CHECKPOINT ...]` runs every tracker with three declared replay seeds using the default FlyTimes mount offsets. Set `KXVO_WIDTH` if your capture profile differs.
+
+For real flights, `python -m kxvo.ground_truth --help` describes how to produce a reference CSV from a surveyed overhead camera and a top-mounted ArUco marker. Supply one synchronized timestamp per video frame. Use one clean alignment window shared by all arms. Report the reference error and any periods without marker coverage. Start with a clean development clip to verify geometry, scale, timing and attitude/range before judging the learned tracker.
+
+Run the same sparse MegaDepth-1500 protocol with each checkpoint and seed. Download the dataset using the [pinned upstream instructions](https://github.com/verlab/accelerated_features#evaluation). The dataset flag points at the directory containing `megadepth_test_1500`.
+
+```sh
+python -m kxvo.megadepth --dataset runs/datasets/Mega1500 \
+  --checkpoint runs/xfeat-upstream/weights/xfeat.pt --seed 1
+```
+
+### ArduPilot SITL
+
+The runner starts a local Copter 4.7.1 child, renders a textured room at the live simulated aircraft pose and reads attitude and range from that autopilot over MAVLink. It establishes the origin and takes off with simulated GPS available, then switches position and yaw to ExternalNav. This checks GPS-to-ExternalNav transition. It exercises force-arm only inside the runner's private SITL process. Use a different `--instance` for simultaneous runs.
+
+```sh
+python -m kxvo.sitl --arducopter runs/ardupilot/build/sitl/bin/arducopter \
+  --output runs/my-truth --fixture
+python -m kxvo.sitl --arducopter runs/ardupilot/build/sitl/bin/arducopter \
+  --output runs/my-stock
+OMP_NUM_THREADS=2 python -m kxvo.sitl --arducopter runs/ardupilot/build/sitl/bin/arducopter \
+  --output runs/my-xfeat --tracker xfeat --checkpoint runs/xfeat-upstream/weights/xfeat.pt
+```
+
+Use the fine-tuned file in the same command to test that model. To exercise assumed link degradation, add `--delay-ms 80 --jitter-ms 15 --drop 0.1 --exposure-ms 12 --blackout-seconds 1 --downlink-bps 1250`. Replace these assumptions with measurements from the FlyTimes. The timeout, pilot source-switch command, transport logs, and DataFlash EKF evidence are recorded under the output directory. This demo uses a translation and hover, and the blackout scenario switches back to simulated GPS. Verify optical-flow recovery separately on the intended source setup.
 
 ## Limits
 

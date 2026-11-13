@@ -79,11 +79,17 @@ class MavLink:
 
     def snapshot(self, max_age_s: float = 0.2) -> tuple[tuple | None, float | None]:
         """Latest attitude and range, or None for anything older than max_age_s."""
-        now = time.monotonic()
-        with self._lock:
-            att = self.tel.att if now - self.tel.att_t < max_age_s else None
-            rng = self.tel.range_m if now - self.tel.range_t < max_age_s else None
+        att, rng, _ = self.snapshot_with_ages(max_age_s)
         return att, rng
+
+    def snapshot_with_ages(self, max_age_s=0.2):
+        with self._lock:
+            now = time.monotonic()
+            att_age = now - self.tel.att_t if self.tel.att_t else None
+            range_age = now - self.tel.range_t if self.tel.range_t else None
+            att = self.tel.att if att_age is not None and att_age < max_age_s else None
+            rng = self.tel.range_m if range_age is not None and range_age < max_age_s else None
+        return att, rng, {"attitude": att_age, "range": range_age}
 
     def request_streams(self):
         """Ask the FC for attitude and rangefinder at a useful rate."""
