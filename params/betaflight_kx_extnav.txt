@@ -1,0 +1,22 @@
+# kxvo into the KX Betaflight fork (patch P3, kx-firmware branch kx/2026.6.2).
+# NOT YET VERIFIED ON HARDWARE. P3 has been exercised in SITL only.
+#
+# P3 fuses MAVLink VISION_POSITION_ESTIMATE / ODOMETRY into the stock position
+# estimator. Stock Betaflight has no external navigation input, so this only
+# works on the KX fork. See kx-firmware/KX.md.
+
+set kx_extnav_enable = ON
+# Keep altitude on the MTF-02P rangefinder; do not fuse VO z.
+set kx_extnav_use_z = OFF
+# cm, one sigma. Used for every sample (kxvo compact messages carry no covariance).
+set kx_extnav_pos_noise = 10
+# Samples older than this are ignored. kxvo sends at 10 Hz.
+set kx_extnav_timeout_ms = 300
+save
+
+# P3 limits from KX.md:
+# - No latency compensation: samples are fused when they arrive, so the
+#   HDZero + HDMI + VO + radio lag goes straight into the estimate. Keep
+#   speeds low indoors.
+# - P3 aligns the external frame once, then needs the flight controller's own
+#   heading for Position Hold. The FlyTimes has no compass.

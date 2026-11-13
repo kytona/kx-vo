@@ -1,0 +1,31 @@
+# kxvo as an ArduPilot external navigation source. STARTING POINT, NOT YET
+# VERIFIED IN SITL OR FLIGHT. Load after the FlyTimes board params.
+#
+# Design: EKF source set 1 stays the proven optical-flow setup (MTF-02P).
+# kxvo is source set 2. The pilot flies on set 1 and flips the switch to
+# set 2 to test VO, and flips back if anything looks wrong. Do not make VO
+# the only source until shadow logs and SITL agree.
+
+# Visual odometry input over MAVLink (VISION_POSITION_ESTIMATE).
+VISO_TYPE 1
+# Capture-to-arrival lag: HDZero + BoxPro HDMI + dongle + VO + radio link.
+# Measure it (README) and set it; 100 ms is a placeholder.
+VISO_DELAY_MS 100
+# kxvo already reports the body pose, not the camera pose.
+VISO_POS_X 0
+VISO_POS_Y 0
+VISO_POS_Z 0
+VISO_ORIENT 0
+# Used when kxvo sends compact messages (zero covariance).
+VISO_POS_M_NSE 0.2
+VISO_YAW_M_NSE 0.2
+
+# EKF3 source set 2: VO position and yaw, rangefinder height.
+EK3_SRC2_POSXY 6
+EK3_SRC2_VELXY 0
+EK3_SRC2_POSZ 2
+EK3_SRC2_VELZ 0
+EK3_SRC2_YAW 6
+
+# RC9 (three-position switch on the Pocket): low = set 1 (flow), mid = set 2 (VO).
+RC9_OPTION 90
