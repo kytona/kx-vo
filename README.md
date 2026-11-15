@@ -28,7 +28,7 @@ The room is a ray-cast textured box, 8 x 6 x 3 m. The camera is 320 x 240 with a
 | One loop, 24 s, mean of 5 seeds | 8.6 m | 0.13 m (1.5% of path) | 0.34 m | 1.1° |
 | Two loops, 48 s, mean of 3 seeds | 17.2 m | 0.60 m | 1.57 m (9.2% of path) | 3.5° |
 
-Read these as a best case. The renderer has no motion blur, rolling shutter, lighting change, video compression, OSD overlay or real latency. Drift grows with distance because there is no loop closure, and yaw drift is the main error over two loops. Cancelling that drift is the job of map matching (AI-NAV-PLAN stage 5, `Claude_Workspace/Products/drones-kytona/kx-flytimes-build/AI-NAV-PLAN.md`).
+Read these as a best case. The renderer has no motion blur, rolling shutter, lighting change, video compression, OSD overlay or real latency. Drift grows with distance because there is no loop closure, and yaw drift is the main error over two loops. The replay shows how quickly yaw error accumulates over repeated loops.
 
 Processing runs at about 275 frames per second at 320 x 240 on an Apple M5. That leaves plenty of headroom for a 60 fps HDZero feed.
 
@@ -81,6 +81,16 @@ scripts/setup-xfeat.sh
 KXVO_PYTHON=.venv/bin/python scripts/build-sitl.sh
 ```
 
+Run the public TartanAir V2 experiment from the repository root:
+
+```sh
+scripts/run-tartanair-xfeat.sh runs/my-tartanair mps
+```
+
+Use `cpu` or `cuda` in place of `mps` where applicable. Add `3` as the third argument for a smoke run. The [pinned route plan](experiments/tartanair-xfeat.json) selects 1,000 training frames, 200 validation frames and 200 test frames. The downloader fetches ZIP ranges for the selected PNGs from the official mirror. Allow roughly 1 GB of transfer and storage for the subset. Route membership, camera, source revision, rights and image hashes are recorded in the dataset manifest. TartanAir publishes the dataset under [CC BY 4.0](https://tartanair.org/).
+
+The script starts two independent seeds from the official checkpoint, uses the same 200 validation images for checkpoint selection, and then compares the two frozen candidates and pretrained XFeat on the held-out school scene. Each model sees identical labelled warps. A final checkpoint from a seed that misses the validation criteria is reported as a diagnostic only. The output includes per-seed provenance, weights, validation curves and `held-out.json`. These scores measure synthetic warp matching. Use the MegaDepth and ArduPilot sections below for general matching and closed-loop checks with the same weights.
+
 Start with a synthetic smoke test. It checks the code path from the official checkpoint through training and validation to a reloadable model.
 
 ```sh
@@ -113,13 +123,15 @@ python -m kxvo.score --reference runs/my-smoke/blur/log.jsonl \
 
 For repeated real replay, `scripts/replay-experiment.sh CAMERA_JSON RUN_DIR OUTPUT_DIR CHECKPOINT [CHECKPOINT ...]` runs each tracker once with a declared seed using the default FlyTimes mount offsets. Set `KXVO_WIDTH` if your capture profile differs.
 
+For a FlyTimes pass without independent ground truth, record once in shadow mode, then replay the same clip through each tracker. Run `python -m kxvo.score --output health.json replay-*.jsonl` without a reference to compare valid coverage, time without pose, resets and processing latency. Add a timestamped reference when the setup supports metre or yaw error.
+
 For real flights, `python -m kxvo.ground_truth --help` describes how to produce a reference CSV from a surveyed overhead camera and a top-mounted ArUco marker. Supply one synchronized timestamp per video frame. Use one clean alignment window shared by all arms. Report the reference error and any periods without marker coverage. Start with a clean development clip to verify geometry, scale, timing and attitude/range before judging the learned tracker.
 
 Run the same sparse MegaDepth-1500 protocol with each checkpoint and seed. Download the dataset using the [pinned upstream instructions](https://github.com/verlab/accelerated_features#evaluation). The dataset flag points at the directory containing `megadepth_test_1500`.
 
 ```sh
 python -m kxvo.megadepth --dataset runs/datasets/Mega1500 \
-  --checkpoint runs/xfeat-upstream/weights/xfeat.pt --seed 1
+  --checkpoint runs/xfeat-upstream/weights/xfeat.pt --seed 1 2 3
 ```
 
 ### ArduPilot SITL

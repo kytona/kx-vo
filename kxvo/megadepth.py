@@ -2,6 +2,7 @@
 
 import argparse
 import importlib
+import json
 from pathlib import Path
 import sys
 
@@ -19,7 +20,10 @@ def main():
                         help="Directory containing megadepth_test_1500")
     parser.add_argument("--seed", type=int, nargs="+", default=[1])
     parser.add_argument("--device", default="cpu")
+    parser.add_argument("--output", type=Path, help="Write the scores and checkpoint identity as JSON")
     args = parser.parse_args()
+    if len(set(args.seed)) != len(args.seed):
+        parser.error("Use distinct PoseLib seeds")
     model = load_xfeat(args.source, args.checkpoint, args.device)
     sys.path.insert(0, str(args.source.resolve()))
     try:
@@ -34,7 +38,8 @@ def main():
     root = args.dataset / "megadepth_test_1500"
     if not root.is_dir():
         parser.error(f"Missing dataset directory: {root}")
-    print(f"checkpoint SHA-256 {sha256(args.checkpoint)}, seeds {args.seed}", flush=True)
+    digest = sha256(args.checkpoint)
+    print(f"checkpoint SHA-256 {digest}, seeds {args.seed}", flush=True)
     dataset = upstream.MegaDepth1500(json_file=str(args.source / "assets/megadepth_1500.json"), root_dir=str(root))
     loader = upstream.DataLoader(dataset, batch_size=1, shuffle=False)
     seeds = args.seed
@@ -55,9 +60,15 @@ def main():
                 if info.get("num_inliers", 0) >= 5:
                     error = max(upstream.relative_pose_error(truth, pose.R, pose.t))
             errors[seed].append(error)
+    scores = {}
     for seed, values in errors.items():
-        auc = {key: round(value * 100, 3) for key, value in upstream.error_auc(values).items()}
+        auc = {key: round(float(value) * 100, 3) for key, value in upstream.error_auc(values).items()}
+        scores[seed] = auc
         print(f"PoseLib seed {seed}: {auc}")
+    if args.output:
+        result = {"checkpoint": str(args.checkpoint), "sha256": digest, "device": args.device,
+                  "pairs": len(dataset), "max_epipolar_error_px": 2.5, "auc_percent": scores}
+        args.output.write_text(json.dumps(result, indent=2) + "\n")
 
 
 if __name__ == "__main__":

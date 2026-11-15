@@ -1,0 +1,132 @@
+{
+  "runs/tartanair-evaluation/replay/clean-klt.jsonl": {
+    "frames": 720,
+    "reference_covered_frames": 720,
+    "valid_covered_frames": 719,
+    "reset_changes": 0,
+    "initialization_s": 0.03333333333333333,
+    "processing_ms_p50_p95": [
+      4.334208439104259,
+      5.4593340028077355
+    ],
+    "outage_count": 0,
+    "outage_s": 0.0,
+    "unavailable_s": 0.03333333333333333,
+    "alignment_window_s": [
+      1.0,
+      2.0
+    ],
+    "horizontal_rms_m": 0.2976004053772112,
+    "yaw_rms_deg": 1.880196973702543,
+    "endpoint_error_m": 0.7668012917427779,
+    "path_m": 8.577403197347017,
+    "endpoint_error_pct": 8.93978368627872,
+    "relative_pairs": 509,
+    "relative_translation_m_median": 0.150632050494829,
+    "relative_yaw_deg_median": 0.6107581682439205
+  },
+  "runs/tartanair-evaluation/replay/clean-orb.jsonl": {
+    "frames": 720,
+    "reference_covered_frames": 720,
+    "valid_covered_frames": 719,
+    "reset_changes": 0,
+    "initialization_s": 0.03333333333333333,
+    "processing_ms_p50_p95": [
+      11.428375029936433,
+      13.225039560347795
+    ],
+    "outage_count": 0,
+    "outage_s": 0.0,
+    "unavailable_s": 0.03333333333333333,
+    "alignment_window_s": [
+      1.0,
+      2.0
+    ],
+    "horizontal_rms_m": 0.28061628561046925,
+    "yaw_rms_deg": 1.6694249198916884,
+    "endpoint_error_m": 0.6766702692003885,
+    "path_m": 8.577403197347017,
+    "endpoint_error_pct": 7.888987536573796,
+    "relative_pairs": 509,
+    "relative_translation_m_median": 0.12343929238489601,
+    "relative_yaw_deg_median": 0.43961886771649983
+  },
+  "runs/tartanair-evaluation/replay/clean-pretrained.jsonl": {
+    "frames": 720,
+    "reference_covered_frames": 720,
+    "valid_covered_frames": 719,
+    "reset_changes": 0,
+    "initialization_s": 0.03333333333333333,
+    "processing_ms_p50_p95": [
+      38.44599996227771,
+      47.22765975166112
+    ],
+    "outage_count": 0,
+    "outage_s": 0.0,
+    "unavailable_s": 0.03333333333333333,
+    "alignment_window_s": [
+      1.0,
+      2.0
+    ],
+    "horizontal_rms_m": 0.10338117054717165,
+    "yaw_rms_deg": 1.144930597067759,
+    "endpoint_error_m": 0.23513842537152801,
+    "path_m": 8.577403197347017,
+    "endpoint_error_pct": 2.741370785090948,
+    "relative_pairs": 509,
+    "relative_translation_m_median": 0.09279307445800626,
+    "relative_yaw_deg_median": 0.9065564285452555
+  },
+  "runs/tartanair-evaluation/replay/clean-seed-1.jsonl": {
+    "frames": 720,
+    "reference_covered_frames": 720,
+    "valid_covered_frames": 719,
+    "reset_changes": 0,
+    "initialization_s": 0.03333333333333333,
+    "processing_ms_p50_p95": [
+      38.27658295631409,
+      42.75549926096573
+    ],
+    "outage_count": 0,
+    "outage_s": 0.0,
+    "unavailable_s": 0.03333333333333333,
+    "alignment_window_s": [
+      1.0,
+      2.0
+    ],
+    "horizontal_rms_m": 0.3437427829822883,
+    "yaw_rms_deg": 3.3039853843471345,
+    "endpoint_error_m": 0.7764239328444982,
+    "path_m": 8.577403197347017,
+    "endpoint_error_pct": 9.051969634406897,
+    "relative_pairs": 509,
+    "relative_translation_m_median": 0.1762492269529657,
+    "relative_yaw_deg_median": 0.9971041183411504
+  },
+  "runs/tartanair-evaluation/replay/clean-seed-2.jsonl": {
+    "frames": 720,
+    "reference_covered_frames": 720,
+    "valid_covered_frames": 719,
+    "reset_changes": 0,
+    "initialization_s": 0.03333333333333333,
+    "processing_ms_p50_p95": [
+      37.27368754334748,
+      42.00741201639175
+    ],
+    "outage_count": 0,
+    "outage_s": 0.0,
+    "unavailable_s": 0.03333333333333333,
+    "alignment_window_s": [
+      1.0,
+      2.0
+    ],
+    "horizontal_rms_m": 0.28464425108579444,
+    "yaw_rms_deg": 2.6845685218772704,
+    "endpoint_error_m": 0.2262874145165334,
+    "path_m": 8.577403197347017,
+    "endpoint_error_pct": 2.6381809192148493,
+    "relative_pairs": 509,
+    "relative_translation_m_median": 0.19690106406287552,
+    "relative_yaw_deg_median": 0.7631032620351967
+  }
+}

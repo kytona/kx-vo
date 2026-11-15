@@ -1,0 +1,87 @@
+{
+  "revision": "0d2d145e973832742a2aaa04b7d2ebffc8d82817",
+  "source": "https://huggingface.co/datasets/theairlabcmu/tartanair2/resolve/0d2d145e973832742a2aaa04b7d2ebffc8d82817",
+  "rights": "CC BY 4.0 (https://tartanair.org/)",
+  "plan": [
+    {
+      "scene": "AbandonedFactory2",
+      "difficulty": "Data_easy",
+      "routes": [
+        [
+          "P000",
+          "train",
+          180
+        ],
+        [
+          "P003",
+          "train",
+          180
+        ],
+        [
+          "P005",
+          "validation",
+          70
+        ]
+      ]
+    },
+    {
+      "scene": "ForestEnv",
+      "difficulty": "Data_easy",
+      "routes": [
+        [
+          "P000",
+          "train",
+          180
+        ],
+        [
+          "P004",
+          "train",
+          180
+        ],
+        [
+          "P009",
+          "validation",
+          70
+        ]
+      ]
+    },
+    {
+      "scene": "AmericanDiner",
+      "difficulty": "Data_easy",
+      "routes": [
+        [
+          "P000",
+          "train",
+          140
+        ],
+        [
+          "P003",
+          "train",
+          140
+        ],
+        [
+          "P005",
+          "validation",
+          60
+        ]
+      ]
+    },
+    {
+      "scene": "AbandonedSchool",
+      "difficulty": "Data_easy",
+      "routes": [
+        [
+          "P001",
+          "test",
+          100
+        ],
+        [
+          "P007",
+          "test",
+          100
+        ]
+      ]
+    }
+  ],
+  "bytes_transferred": 1003655823
+}

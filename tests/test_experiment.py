@@ -129,3 +129,25 @@ def test_descriptor_geometry_rejects_large_jump_with_few_matches():
     vo.pts = np.array([[100, 100], [105, 100]], dtype=np.float32)
     matches = vo._geometric_matches([(0, 0), (1, 1)], np.array([[103, 100], [220, 100]]))
     assert matches == [(0, 0)]
+
+
+def test_manifest_rejects_changed_pinned_image(tmp_path):
+    (tmp_path / "a.png").write_bytes(b"changed")
+    manifest = tmp_path / "manifest.csv"
+    manifest.write_text("path,split,group,rights,sha256\na.png,train,one,CC BY 4.0,wrong\n")
+    with pytest.raises(ValueError, match="Image hash does not match manifest"):
+        read_manifest(manifest)
+
+
+def test_tracking_health_counts_unavailable_time_without_reference():
+    from kxvo.score import tracking_health
+
+    rows = [{"t": t, "valid": valid, "reset": reset, "processing_ms": 4}
+            for t, valid, reset in [(0, False, 0), (0.2, True, 0), (0.5, False, 1),
+                                    (0.9, False, 1), (1.5, True, 1), (2, True, 1)]]
+    metrics = tracking_health(rows)
+    assert metrics["valid_frames"] == 3
+    assert metrics["initialization_s"] == pytest.approx(0.2)
+    assert metrics["unavailable_s"] == pytest.approx(1.2)
+    assert metrics["longest_unavailable_s"] == pytest.approx(1.0)
+    assert metrics["reset_changes"] == 1

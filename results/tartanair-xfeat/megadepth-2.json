@@ -1,0 +1,24 @@
+{
+  "checkpoint": "runs/tartanair-main/seed-2/step-500.pt",
+  "sha256": "7e3a696ece15330b4ce1c9b90df22574850200fa0330156a760b61c06b4c3be3",
+  "device": "mps",
+  "pairs": 1500,
+  "max_epipolar_error_px": 2.5,
+  "auc_percent": {
+    "1": {
+      "auc@5": 35.871,
+      "auc@10": 49.09,
+      "auc@20": 59.927
+    },
+    "2": {
+      "auc@5": 34.794,
+      "auc@10": 48.136,
+      "auc@20": 59.327
+    },
+    "3": {
+      "auc@5": 35.676,
+      "auc@10": 49.02,
+      "auc@20": 60.08
+    }
+  }
+}

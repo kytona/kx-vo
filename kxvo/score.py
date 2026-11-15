@@ -1,4 +1,4 @@
-"""Score replay JSONL against time-aligned local metric ground truth."""
+"""Score replay tracking health and, when supplied, error against ground truth."""
 
 from __future__ import annotations
 
@@ -21,6 +21,31 @@ def load_reference(path):
                              for row in csv.DictReader(stream)])
     return np.array([[r["t"], *r["truth_p"], r["truth_rpy"][2]]
                      for r in map(json.loads, path.read_text().splitlines()) if "truth_p" in r])
+
+
+def tracking_health(records):
+    t = np.array([row["t"] for row in records])
+    if len(t) < 2 or not np.isfinite(t).all() or np.any(np.diff(t) <= 0):
+        raise ValueError("Need at least two finite, strictly increasing replay timestamps")
+    valid = np.array([bool(row["valid"]) for row in records])
+    valid_indices = np.flatnonzero(valid)
+    # Timestamp gaps describe coverage only between the first and last logged samples.
+    durations = np.diff(t)
+    sums = np.r_[0, np.cumsum(durations[~valid[:-1]])]
+    intervals = np.flatnonzero(~valid[:-1])
+    boundaries = np.r_[0, np.flatnonzero(np.diff(intervals) > 1) + 1, len(intervals)]
+    outages = np.diff(sums[boundaries])
+    metrics = {"frames": len(t), "valid_frames": int(valid.sum()),
+               "valid_fraction": float(valid.mean()), "duration_s": float(t[-1] - t[0]),
+               "initialization_s": float(t[valid_indices[0]] - t[0]) if len(valid_indices) else None,
+               "unavailable_s": float(sums[-1]),
+               "longest_unavailable_s": float(outages.max(initial=0)),
+               "reset_changes": sum(a.get("reset", 0) != b.get("reset", 0)
+                                    for a, b in zip(records, records[1:]))}
+    ms = [row["processing_ms"] for row in records if row.get("processing_ms") is not None]
+    if ms:
+        metrics["processing_ms_p50_p95"] = np.percentile(ms, [50, 95]).tolist()
+    return metrics
 
 
 def score(records, ref, alignment_seconds=1.0, window=5.0, max_ref_gap=0.15, alignment_start=None):
@@ -89,14 +114,16 @@ def score(records, ref, alignment_seconds=1.0, window=5.0, max_ref_gap=0.15, ali
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--reference", required=True, type=Path)
+    parser.add_argument("--reference", type=Path, help="Time-aligned pose reference for trajectory error")
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--plot", type=Path)
     parser.add_argument("--alignment-seconds", type=float, default=1)
     parser.add_argument("--alignment-start", type=float, help="Start of the fixed clean window in the reference clock")
     parser.add_argument("replays", nargs="+", type=Path)
     args = parser.parse_args(argv)
-    reference = load_reference(args.reference)
+    if args.plot and args.reference is None:
+        parser.error("--plot requires --reference")
+    reference = load_reference(args.reference) if args.reference else None
     results = {}
     if args.plot:
         import matplotlib.pyplot as plt
@@ -104,6 +131,9 @@ def main(argv=None):
         ax.plot(reference[:, 2], reference[:, 1], color="black", label="reference")
     for path in args.replays:
         records = [r for r in map(json.loads, path.read_text().splitlines()) if "p" in r]
+        if reference is None:
+            results[str(path)] = tracking_health(records)
+            continue
         metrics, trajectory = score(records, reference, alignment_seconds=args.alignment_seconds,
                                     alignment_start=args.alignment_start)
         results[str(path)] = metrics

@@ -1,5 +1,18 @@
 # XFeat experiment results
 
+## TartanAir V2 fine-tuning
+
+Two 500-step runs trained on 1,000 public TartanAir V2 frames. Both improved blurred-pair validation recall by less than one percentage point and regressed on the held-out school scene. Both also lost roughly eight AUC points on MegaDepth-1500 and increased trajectory error against pretrained XFeat on the clean and blurred room replays. Pretrained XFeat remains the learned reference.
+
+- [Experimental checkpoint model card](tartanair-xfeat/MODEL-CARD.md)
+- [Dataset provenance](tartanair-xfeat/dataset.json) and [frozen manifest](tartanair-xfeat/manifest.csv.gz)
+- [Training curves and hashes](tartanair-xfeat/training.json), [held-out scores](tartanair-xfeat/held-out.json) and [recall plot](tartanair-xfeat/recall.png)
+- MegaDepth-1500 scores for [pretrained](tartanair-xfeat/megadepth-pretrained.json), [seed 1](tartanair-xfeat/megadepth-1.json) and [seed 2](tartanair-xfeat/megadepth-2.json)
+- [Clean room replay](tartanair-xfeat/clean.json) and [blurred room replay](tartanair-xfeat/blur.json)
+- [Native ArduPilot SITL settings and results](tartanair-xfeat/sitl.json)
+
+## Synthetic training smoke
+
 These are synthetic smoke and software-in-the-loop results. The training smoke used four synthetic training frames and four synthetic validation frames, two seeds and three optimiser steps per seed. The held-out trajectory used a different room texture seed and a 24 s trajectory. The blur clip added three artificial bursts.
 
 The same clips were scored with stock KLT, ORB, pretrained XFeat and both smoke checkpoints. Stock KLT was substantially better on these trajectories. The smoke experiment proves that weights can be trained, validated and reloaded. It provides no evidence to select a learned tracker for flight.

@@ -1,0 +1,72 @@
+{
+  "manifest_sha256": "2cfa9c6b72ee8e9a344d80f0dc420262dc64877bb0aa7b12c66eec76c0ae49ca",
+  "frames": 200,
+  "groups": [
+    "AbandonedSchool/Data_easy/P001",
+    "AbandonedSchool/Data_easy/P007"
+  ],
+  "pair_seed": 2718,
+  "size": [
+    320,
+    320
+  ],
+  "max_blur": 11,
+  "pixel_tolerance": 3,
+  "device": "mps",
+  "models": [
+    {
+      "checkpoint": "runs/xfeat-upstream/weights/xfeat.pt",
+      "sha256": "0f5187fd7bedd26c7fe6acc9685444493a165a35ecc087b33c2db3627f3ea10b",
+      "clean": {
+        "precision": 0.6875911156847612,
+        "recall": 0.4120511338086979,
+        "correct": 32072,
+        "matches": 46644,
+        "visible": 77835
+      },
+      "blur": {
+        "precision": 0.5809873018997933,
+        "recall": 0.30447510962084084,
+        "correct": 23609,
+        "matches": 40636,
+        "visible": 77540
+      }
+    },
+    {
+      "checkpoint": "runs/tartanair-main/seed-1/step-500.pt",
+      "sha256": "f96dba93e5cfaa4ae47b055ea130956339a9cba02b2ca7d317cecfc6588912a9",
+      "clean": {
+        "precision": 0.6279252997167862,
+        "recall": 0.37411349767194024,
+        "correct": 29488,
+        "matches": 46961,
+        "visible": 78821
+      },
+      "blur": {
+        "precision": 0.5556356298645143,
+        "recall": 0.2943422157746049,
+        "correct": 23130,
+        "matches": 41628,
+        "visible": 78582
+      }
+    },
+    {
+      "checkpoint": "runs/tartanair-main/seed-2/step-500.pt",
+      "sha256": "7e3a696ece15330b4ce1c9b90df22574850200fa0330156a760b61c06b4c3be3",
+      "clean": {
+        "precision": 0.6241982569413369,
+        "recall": 0.3714369040373301,
+        "correct": 29293,
+        "matches": 46929,
+        "visible": 78864
+      },
+      "blur": {
+        "precision": 0.5497005699992785,
+        "recall": 0.2907777056855336,
+        "correct": 22856,
+        "matches": 41579,
+        "visible": 78603
+      }
+    }
+  ]
+}

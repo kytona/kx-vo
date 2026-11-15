@@ -12,7 +12,7 @@ import time
 import cv2
 import numpy as np
 
-from .trackers import load_xfeat, sha256
+from .trackers import XFEAT_REV, load_xfeat, sha256
 from .video import processing_frame
 
 OFFICIAL_SHA = "0f5187fd7bedd26c7fe6acc9685444493a165a35ecc087b33c2db3627f3ea10b"
@@ -88,7 +88,10 @@ def read_manifest(path):
             raise ValueError("Every row needs a valid split, group and rights record")
         if groups.setdefault(group, split) != split:
             raise ValueError(f"Group crosses splits: {group}")
-        row["sha256"] = sha256(row["file"])
+        digest = sha256(row["file"])
+        if row.get("sha256") and row["sha256"] != digest:
+            raise ValueError(f"Image hash does not match manifest: {row['path']}")
+        row["sha256"] = digest
         if hashes.setdefault(row["sha256"], split) != split:
             raise ValueError(f"Identical image crosses splits: {row['path']}")
     for split in ("train", "validation"):
@@ -97,12 +100,12 @@ def read_manifest(path):
     return rows
 
 
-def evaluate_pairs(model, images, max_blur):
+def evaluate_pairs(model, images, max_blur, seed=314):
     import torch
     result = {}
     model.eval()
     for name, degraded in (("clean", False), ("blur", True)):
-        rng = np.random.default_rng(314)
+        rng = np.random.default_rng(seed)
         correct = total = visible = 0
         with torch.inference_mode():
             for image in images:
@@ -173,6 +176,22 @@ def detector_loss(logits, points, rng):
                          torch.as_tensor(labels, device=logits.device))
 
 
+def load_images(rows, splits, width, height):
+    images = {split: [] for split in splits}
+    for row in rows:
+        if row["split"] not in images:
+            continue
+        path = row["file"]
+        if path.suffix == ".npy":
+            image = processing_frame(np.load(path, allow_pickle=False))
+        else:
+            image = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
+        if image is None:
+            raise ValueError(f"Unreadable image: {path}")
+        images[row["split"]].append(cv2.resize(image, (width, height), interpolation=cv2.INTER_AREA))
+    return images
+
+
 def train_seed(args, rows, seed):
     import torch
 
@@ -182,25 +201,14 @@ def train_seed(args, rows, seed):
     teacher = load_xfeat(args.xfeat_source, args.checkpoint, args.device) if args.train_detector else None
     output = args.output / f"seed-{seed}"
     output.mkdir(parents=True, exist_ok=False)
-    paths = {"train": [], "validation": []}
-    for row in rows:
-        if row["split"] not in paths:
-            continue
-        frame = row["file"]
-        if frame.suffix == ".npy":
-            image = processing_frame(np.load(frame, allow_pickle=False))
-        else:
-            image = cv2.imread(str(frame), cv2.IMREAD_GRAYSCALE)
-        if image is None:
-            raise ValueError(f"Unreadable image: {row['file']}")
-        paths[row["split"]].append(cv2.resize(image, (args.width, args.height), interpolation=cv2.INTER_AREA))
+    paths = load_images(rows, ("train", "validation"), args.width, args.height)
     manifest = [{k: v for k, v in row.items() if k != "file"} for row in rows]
     config = {k: str(v) if isinstance(v, Path) else v for k, v in vars(args).items()}
     provenance = {"config": config, "seed": seed, "torch": torch.__version__, "opencv": cv2.__version__,
-                  "base_sha256": sha256(args.checkpoint), "manifest": manifest,
+                  "base_sha256": sha256(args.checkpoint), "xfeat_revision": XFEAT_REV, "manifest": manifest,
                   "teacher": "pinned XFeat on clean frames" if teacher else "none; descriptor-only ablation"}
     (output / "provenance.json").write_text(json.dumps(provenance, indent=2) + "\n")
-    # Keep the detector, reliability head and fine matcher fixed for the sparse experiment.
+    # Freeze the reliability head and fine matcher. Train the detector only with teacher labels.
     for name, parameter in model.net.named_parameters():
         if name.startswith(("heatmap_head", "fine_matcher")) or (not teacher and name.startswith("keypoint_head")):
             parameter.requires_grad_(False)
@@ -209,6 +217,8 @@ def train_seed(args, rows, seed):
     best = baseline["blur"]["recall"]
     (output / "validation.jsonl").write_text(json.dumps({"step": 0, **baseline}) + "\n")
     save_validation_overlays(paths["validation"], args.max_blur, output)
+    print(f"Seed {seed}, step 0: clean recall {baseline['clean']['recall']:.3f}, "
+          f"blur recall {baseline['blur']['recall']:.3f}", flush=True)
     started = time.monotonic()
     interval_losses = []
     for step in range(1, args.steps + 1):
@@ -255,6 +265,9 @@ def train_seed(args, rows, seed):
             with (output / "validation.jsonl").open("a") as log:
                 log.write(json.dumps({"step": step, "loss": float(np.mean(interval_losses)), "seconds": time.monotonic() - started,
                                       "sha256": sha256(save), "selected": selected, **scores}) + "\n")
+            print(f"Seed {seed}, step {step}: loss {np.mean(interval_losses):.3f}, "
+                  f"clean recall {scores['clean']['recall']:.3f}, blur recall {scores['blur']['recall']:.3f}, "
+                  f"selected {selected}, {time.monotonic() - started:.1f}s", flush=True)
             interval_losses.clear()
 
 

@@ -1,0 +1,338 @@
+{
+  "base_kxvo_revision": "24ca7e5",
+  "platform": "macOS-26.6.2-arm64-i386-64bit",
+  "poselib_version": "2.0.5",
+  "cloud_cost_usd": 0,
+  "manifest": "manifest.csv.gz",
+  "manifest_sha256": "2cfa9c6b72ee8e9a344d80f0dc420262dc64877bb0aa7b12c66eec76c0ae49ca",
+  "smoke": [
+    {
+      "config": {
+        "manifest": "runs/datasets/tartanair-xfeat/manifest.csv",
+        "output": "runs/tartanair-smoke",
+        "xfeat_source": "runs/xfeat-upstream",
+        "checkpoint": "runs/xfeat-upstream/weights/xfeat.pt",
+        "device": "mps",
+        "train_detector": true,
+        "seeds": [
+          1,
+          2
+        ],
+        "steps": 3,
+        "validate_every": 3,
+        "batch": 4,
+        "lr": 3e-05,
+        "width": 320,
+        "height": 320,
+        "max_blur": 11
+      },
+      "seed": 1,
+      "torch": "2.15.0",
+      "opencv": "5.0.0",
+      "base_sha256": "0f5187fd7bedd26c7fe6acc9685444493a165a35ecc087b33c2db3627f3ea10b",
+      "xfeat_revision": "e92685f57f8318b18725c5c8c0bd28c7fe188d9a",
+      "teacher": "pinned XFeat on clean frames",
+      "validation": [
+        {
+          "step": 0,
+          "clean": {
+            "precision": 0.6682105714592045,
+            "recall": 0.3994667281980284,
+            "correct": 31162,
+            "matches": 46635,
+            "visible": 78009
+          },
+          "blur": {
+            "precision": 0.5405970077567782,
+            "recall": 0.2883844271640682,
+            "correct": 22511,
+            "matches": 41641,
+            "visible": 78059
+          }
+        },
+        {
+          "step": 3,
+          "loss": 2.1152809858322144,
+          "seconds": 8.544924499932677,
+          "sha256": "56c7c2e733d64c71c1ad09c605dcd449d5d52daeb95737fb09d5a209df017421",
+          "selected": true,
+          "clean": {
+            "precision": 0.6641370660884722,
+            "recall": 0.3992154457520349,
+            "correct": 31243,
+            "matches": 47043,
+            "visible": 78261
+          },
+          "blur": {
+            "precision": 0.5412431771127423,
+            "recall": 0.2937496009704399,
+            "correct": 23005,
+            "matches": 42504,
+            "visible": 78315
+          }
+        }
+      ],
+      "selection": {
+        "checkpoint": "step-3.pt",
+        "sha256": "56c7c2e733d64c71c1ad09c605dcd449d5d52daeb95737fb09d5a209df017421"
+      }
+    },
+    {
+      "config": {
+        "manifest": "runs/datasets/tartanair-xfeat/manifest.csv",
+        "output": "runs/tartanair-smoke",
+        "xfeat_source": "runs/xfeat-upstream",
+        "checkpoint": "runs/xfeat-upstream/weights/xfeat.pt",
+        "device": "mps",
+        "train_detector": true,
+        "seeds": [
+          1,
+          2
+        ],
+        "steps": 3,
+        "validate_every": 3,
+        "batch": 4,
+        "lr": 3e-05,
+        "width": 320,
+        "height": 320,
+        "max_blur": 11
+      },
+      "seed": 2,
+      "torch": "2.15.0",
+      "opencv": "5.0.0",
+      "base_sha256": "0f5187fd7bedd26c7fe6acc9685444493a165a35ecc087b33c2db3627f3ea10b",
+      "xfeat_revision": "e92685f57f8318b18725c5c8c0bd28c7fe188d9a",
+      "teacher": "pinned XFeat on clean frames",
+      "validation": [
+        {
+          "step": 0,
+          "clean": {
+            "precision": 0.6682105714592045,
+            "recall": 0.3994667281980284,
+            "correct": 31162,
+            "matches": 46635,
+            "visible": 78009
+          },
+          "blur": {
+            "precision": 0.5405970077567782,
+            "recall": 0.2883844271640682,
+            "correct": 22511,
+            "matches": 41641,
+            "visible": 78059
+          }
+        },
+        {
+          "step": 3,
+          "loss": 2.039337674776713,
+          "seconds": 4.676738792099059,
+          "sha256": "7a871fff4cb78034fa533109a0a81e7dc45383ea2a8e237aba34776190cf2bec",
+          "selected": true,
+          "clean": {
+            "precision": 0.6645691126279863,
+            "recall": 0.3983353151010702,
+            "correct": 31155,
+            "matches": 46880,
+            "visible": 78213
+          },
+          "blur": {
+            "precision": 0.54088602191339,
+            "recall": 0.2914483604671966,
+            "correct": 22807,
+            "matches": 42166,
+            "visible": 78254
+          }
+        }
+      ],
+      "selection": {
+        "checkpoint": "step-3.pt",
+        "sha256": "7a871fff4cb78034fa533109a0a81e7dc45383ea2a8e237aba34776190cf2bec"
+      }
+    }
+  ],
+  "training": [
+    {
+      "config": {
+        "manifest": "runs/datasets/tartanair-xfeat/manifest.csv",
+        "output": "runs/tartanair-main",
+        "xfeat_source": "runs/xfeat-upstream",
+        "checkpoint": "runs/xfeat-upstream/weights/xfeat.pt",
+        "device": "mps",
+        "train_detector": true,
+        "seeds": [
+          1,
+          2
+        ],
+        "steps": 500,
+        "validate_every": 250,
+        "batch": 4,
+        "lr": 3e-05,
+        "width": 320,
+        "height": 320,
+        "max_blur": 11
+      },
+      "seed": 1,
+      "torch": "2.15.0",
+      "opencv": "5.0.0",
+      "base_sha256": "0f5187fd7bedd26c7fe6acc9685444493a165a35ecc087b33c2db3627f3ea10b",
+      "xfeat_revision": "e92685f57f8318b18725c5c8c0bd28c7fe188d9a",
+      "teacher": "pinned XFeat on clean frames",
+      "validation": [
+        {
+          "step": 0,
+          "clean": {
+            "precision": 0.6682105714592045,
+            "recall": 0.3994667281980284,
+            "correct": 31162,
+            "matches": 46635,
+            "visible": 78009
+          },
+          "blur": {
+            "precision": 0.5405970077567782,
+            "recall": 0.2883844271640682,
+            "correct": 22511,
+            "matches": 41641,
+            "visible": 78059
+          }
+        },
+        {
+          "step": 250,
+          "loss": 1.8223945236206054,
+          "seconds": 22.66877824999392,
+          "sha256": "6cd1f5faf1eb194a2937e170c8810a11c6a1cbb7029386aaabf45aeff511cfb6",
+          "selected": false,
+          "clean": {
+            "precision": 0.6233627714492939,
+            "recall": 0.371115429064909,
+            "correct": 29222,
+            "matches": 46878,
+            "visible": 78741
+          },
+          "blur": {
+            "precision": 0.5256012232982716,
+            "recall": 0.2880176725998527,
+            "correct": 22686,
+            "matches": 43162,
+            "visible": 78766
+          }
+        },
+        {
+          "step": 500,
+          "loss": 1.6972761058807373,
+          "seconds": 41.575584874954075,
+          "sha256": "f96dba93e5cfaa4ae47b055ea130956339a9cba02b2ca7d317cecfc6588912a9",
+          "selected": true,
+          "clean": {
+            "precision": 0.628267039437455,
+            "recall": 0.37642923313155924,
+            "correct": 29663,
+            "matches": 47214,
+            "visible": 78801
+          },
+          "blur": {
+            "precision": 0.5345224395857308,
+            "recall": 0.2947185422059794,
+            "correct": 23225,
+            "matches": 43450,
+            "visible": 78804
+          }
+        }
+      ],
+      "selection": {
+        "checkpoint": "step-500.pt",
+        "sha256": "f96dba93e5cfaa4ae47b055ea130956339a9cba02b2ca7d317cecfc6588912a9"
+      }
+    },
+    {
+      "config": {
+        "manifest": "runs/datasets/tartanair-xfeat/manifest.csv",
+        "output": "runs/tartanair-main",
+        "xfeat_source": "runs/xfeat-upstream",
+        "checkpoint": "runs/xfeat-upstream/weights/xfeat.pt",
+        "device": "mps",
+        "train_detector": true,
+        "seeds": [
+          1,
+          2
+        ],
+        "steps": 500,
+        "validate_every": 250,
+        "batch": 4,
+        "lr": 3e-05,
+        "width": 320,
+        "height": 320,
+        "max_blur": 11
+      },
+      "seed": 2,
+      "torch": "2.15.0",
+      "opencv": "5.0.0",
+      "base_sha256": "0f5187fd7bedd26c7fe6acc9685444493a165a35ecc087b33c2db3627f3ea10b",
+      "xfeat_revision": "e92685f57f8318b18725c5c8c0bd28c7fe188d9a",
+      "teacher": "pinned XFeat on clean frames",
+      "validation": [
+        {
+          "step": 0,
+          "clean": {
+            "precision": 0.6682105714592045,
+            "recall": 0.3994667281980284,
+            "correct": 31162,
+            "matches": 46635,
+            "visible": 78009
+          },
+          "blur": {
+            "precision": 0.5405970077567782,
+            "recall": 0.2883844271640682,
+            "correct": 22511,
+            "matches": 41641,
+            "visible": 78059
+          }
+        },
+        {
+          "step": 250,
+          "loss": 1.832260003566742,
+          "seconds": 23.632177124964073,
+          "sha256": "e958b4d33e38a4aa9c608c2ad69349c8193f2ad5fbaa9d7b716618619106935e",
+          "selected": false,
+          "clean": {
+            "precision": 0.6181611999058562,
+            "recall": 0.36736432531407354,
+            "correct": 28891,
+            "matches": 46737,
+            "visible": 78644
+          },
+          "blur": {
+            "precision": 0.5198724068080747,
+            "recall": 0.28378962352881365,
+            "correct": 22328,
+            "matches": 42949,
+            "visible": 78678
+          }
+        },
+        {
+          "step": 500,
+          "loss": 1.6998342938423157,
+          "seconds": 43.2293848330155,
+          "sha256": "7e3a696ece15330b4ce1c9b90df22574850200fa0330156a760b61c06b4c3be3",
+          "selected": true,
+          "clean": {
+            "precision": 0.6248833262621977,
+            "recall": 0.37398115938349036,
+            "correct": 29457,
+            "matches": 47140,
+            "visible": 78766
+          },
+          "blur": {
+            "precision": 0.5306394827070438,
+            "recall": 0.2927138867732927,
+            "correct": 23060,
+            "matches": 43457,
+            "visible": 78780
+          }
+        }
+      ],
+      "selection": {
+        "checkpoint": "step-500.pt",
+        "sha256": "7e3a696ece15330b4ce1c9b90df22574850200fa0330156a760b61c06b4c3be3"
+      }
+    }
+  ]
+}

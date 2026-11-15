@@ -1,0 +1,24 @@
+{
+  "checkpoint": "runs/xfeat-upstream/weights/xfeat.pt",
+  "sha256": "0f5187fd7bedd26c7fe6acc9685444493a165a35ecc087b33c2db3627f3ea10b",
+  "device": "mps",
+  "pairs": 1500,
+  "max_epipolar_error_px": 2.5,
+  "auc_percent": {
+    "1": {
+      "auc@5": 43.396,
+      "auc@10": 57.171,
+      "auc@20": 68.008
+    },
+    "2": {
+      "auc@5": 42.623,
+      "auc@10": 56.462,
+      "auc@20": 67.943
+    },
+    "3": {
+      "auc@5": 43.514,
+      "auc@10": 56.918,
+      "auc@20": 67.95
+    }
+  }
+}

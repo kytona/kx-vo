@@ -1,0 +1,132 @@
+{
+  "runs/tartanair-evaluation/replay/blur-klt.jsonl": {
+    "frames": 720,
+    "reference_covered_frames": 720,
+    "valid_covered_frames": 719,
+    "reset_changes": 0,
+    "initialization_s": 0.03333333333333333,
+    "processing_ms_p50_p95": [
+      4.13189607206732,
+      4.961116553749888
+    ],
+    "outage_count": 0,
+    "outage_s": 0.0,
+    "unavailable_s": 0.03333333333333333,
+    "alignment_window_s": [
+      1.0,
+      2.0
+    ],
+    "horizontal_rms_m": 0.31731528194976116,
+    "yaw_rms_deg": 2.0602010404365205,
+    "endpoint_error_m": 0.7821943291402002,
+    "path_m": 8.577403197347017,
+    "endpoint_error_pct": 9.119244031598424,
+    "relative_pairs": 509,
+    "relative_translation_m_median": 0.15127903119835645,
+    "relative_yaw_deg_median": 0.7703463698445389
+  },
+  "runs/tartanair-evaluation/replay/blur-orb.jsonl": {
+    "frames": 720,
+    "reference_covered_frames": 720,
+    "valid_covered_frames": 719,
+    "reset_changes": 0,
+    "initialization_s": 0.03333333333333333,
+    "processing_ms_p50_p95": [
+      11.793208541348577,
+      14.166269369889049
+    ],
+    "outage_count": 0,
+    "outage_s": 0.0,
+    "unavailable_s": 0.03333333333333333,
+    "alignment_window_s": [
+      1.0,
+      2.0
+    ],
+    "horizontal_rms_m": 0.3165526022446134,
+    "yaw_rms_deg": 1.5721331830452492,
+    "endpoint_error_m": 0.7084967567904603,
+    "path_m": 8.577403197347017,
+    "endpoint_error_pct": 8.260037921612426,
+    "relative_pairs": 509,
+    "relative_translation_m_median": 0.13708163628670542,
+    "relative_yaw_deg_median": 0.9584294702881513
+  },
+  "runs/tartanair-evaluation/replay/blur-pretrained.jsonl": {
+    "frames": 720,
+    "reference_covered_frames": 720,
+    "valid_covered_frames": 719,
+    "reset_changes": 0,
+    "initialization_s": 0.03333333333333333,
+    "processing_ms_p50_p95": [
+      36.4044999005273,
+      42.472406127490096
+    ],
+    "outage_count": 0,
+    "outage_s": 0.0,
+    "unavailable_s": 0.03333333333333333,
+    "alignment_window_s": [
+      1.0,
+      2.0
+    ],
+    "horizontal_rms_m": 0.24817013304166205,
+    "yaw_rms_deg": 1.1778910588148443,
+    "endpoint_error_m": 0.1366369554009773,
+    "path_m": 8.577403197347017,
+    "endpoint_error_pct": 1.5929874375409914,
+    "relative_pairs": 509,
+    "relative_translation_m_median": 0.2231867563302763,
+    "relative_yaw_deg_median": 0.8643357741410439
+  },
+  "runs/tartanair-evaluation/replay/blur-seed-1.jsonl": {
+    "frames": 720,
+    "reference_covered_frames": 720,
+    "valid_covered_frames": 719,
+    "reset_changes": 0,
+    "initialization_s": 0.03333333333333333,
+    "processing_ms_p50_p95": [
+      36.16179141681641,
+      41.595282743219286
+    ],
+    "outage_count": 0,
+    "outage_s": 0.0,
+    "unavailable_s": 0.03333333333333333,
+    "alignment_window_s": [
+      1.0,
+      2.0
+    ],
+    "horizontal_rms_m": 0.33567532802257766,
+    "yaw_rms_deg": 3.5613510716078967,
+    "endpoint_error_m": 0.7912475485586691,
+    "path_m": 8.577403197347017,
+    "endpoint_error_pct": 9.224791354140857,
+    "relative_pairs": 509,
+    "relative_translation_m_median": 0.17987206438419262,
+    "relative_yaw_deg_median": 0.9686067269823606
+  },
+  "runs/tartanair-evaluation/replay/blur-seed-2.jsonl": {
+    "frames": 720,
+    "reference_covered_frames": 720,
+    "valid_covered_frames": 719,
+    "reset_changes": 0,
+    "initialization_s": 0.03333333333333333,
+    "processing_ms_p50_p95": [
+      34.811500110663474,
+      39.48650429956615
+    ],
+    "outage_count": 0,
+    "outage_s": 0.0,
+    "unavailable_s": 0.03333333333333333,
+    "alignment_window_s": [
+      1.0,
+      2.0
+    ],
+    "horizontal_rms_m": 0.3458508400122444,
+    "yaw_rms_deg": 3.0241083294687257,
+    "endpoint_error_m": 0.8095119576971599,
+    "path_m": 8.577403197347017,
+    "endpoint_error_pct": 9.43772770233701,
+    "relative_pairs": 509,
+    "relative_translation_m_median": 0.22296900616524984,
+    "relative_yaw_deg_median": 1.0768900140476723
+  }
+}
