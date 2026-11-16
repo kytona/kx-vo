@@ -226,18 +226,17 @@ def test_archive_member_resume_reuses_only_crc_verified_files(tmp_path):
         assert (tmp_path / "two.png").read_bytes() == b"two"
 
 
-def test_correspondence_loss_updates_reliability_maps():
+def test_reliability_distillation_tracks_teacher_and_masks_warped_edges():
     torch = pytest.importorskip("torch")
-    from kxvo.train import correspondence_loss
+    from kxvo.train import reliability_loss
 
-    features = torch.zeros((2, 2, 2), requires_grad=True)
-    reliability = torch.full((1, 2, 2), 0.5, requires_grad=True)
-    cells = torch.tensor([[0, 0], [1, 1]])
-    correspondence_loss(features, features, reliability, reliability, cells, cells).backward()
-    assert reliability.grad[0, 0, 0] > 0
-    assert reliability.grad[0, 1, 1] > 0
-    assert reliability.grad[0, 1, 0] == 0
-
+    predicted = torch.full((1, 2, 3), 0.5, requires_grad=True)
+    teacher = np.array([[0.2, 0.8, 0.9], [0.2, 0.8, 0.9]], dtype=np.float32)
+    inverse = np.array([[1., 0., -8.], [0., 1., 0.], [0., 0., 1.]])
+    reliability_loss(predicted, teacher, inverse).backward()
+    assert (predicted.grad[:, :, 0] == 0).all()
+    assert (predicted.grad[:, :, 1] > 0).all()
+    assert (predicted.grad[:, :, 2] < 0).all()
 
 def test_teacher_requests_all_detections_for_negative_mask():
     torch = pytest.importorskip("torch")
@@ -278,3 +277,51 @@ def test_lockstep_servo_packets_check_length_and_magic():
     assert servo_frame(thirty_two) == (400, 124)
     with pytest.raises(ValueError):
         servo_frame(thirty_two[:40])
+
+
+def test_paired_windows_use_the_same_errors_and_report_lost_windows():
+    from kxvo.score import compare_windows
+
+    t = np.arange(0, 12, 0.1)
+    truth = np.column_stack((t, t, t * 0, t * 0, t * 0))
+    full = [{"t": time, "p": [time, 0, 0], "rpy": [0, 0, 0], "valid": True} for time in t]
+    failed = [{**row, "valid": row["t"] != 4.0} for row in full]
+    traces = {"full": {}, "gaps": {}}
+    first, _ = score(full, truth, window_details=traces["full"])
+    second, _ = score(failed, truth, window_details=traces["gaps"])
+    paired = compare_windows(traces)
+    assert paired["eligible"] == first["relative_windows_eligible"] == second["relative_windows_eligible"]
+    assert paired["common"] == second["relative_pairs"] < paired["eligible"]
+    assert paired["arms"]["full"]["lost"] == 0
+    assert paired["arms"]["gaps"]["lost"] == paired["eligible"] - paired["common"]
+    assert paired["arms"]["gaps"]["median_translation_m"] == pytest.approx(0)
+
+
+def test_frozen_manifest_checks_the_csv_before_reading_images(tmp_path):
+    from kxvo.trackers import sha256
+    from kxvo.train import verify_manifest
+
+    path = tmp_path / "manifest.csv"
+    path.write_text("first")
+    expected = sha256(path)
+    assert verify_manifest(path, expected) == expected
+    path.write_text("revised")
+    with pytest.raises(ValueError, match="Manifest SHA-256 mismatch"):
+        verify_manifest(path, expected)
+
+
+def test_recorded_pose_stream_age_and_validation(tmp_path):
+    from kxvo.pose_stream import PoseStream
+
+    path = tmp_path / "poses.jsonl"
+    path.write_text('{"t":0.1,"p":[1,2,3],"rpy":[0,0,0]}\n'
+                    '{"t":0.2,"p":[2,2,3],"rpy":[0,0,0],"valid":false}\n')
+    stream = PoseStream(path)
+    assert stream.sample(0) == (None, None)
+    assert stream.sample(0.15)[1].p_WB.tolist() == [1, 2, 3]
+    assert not stream.sample(0.21)[1].valid
+    assert stream.sample(0.5) == (None, None)
+    with path.open("a") as output:
+        output.write('{"t":0.2,"p":[1,2,3],"rpy":[0,0,0]}\n')
+    with pytest.raises(ValueError, match="Invalid pose stream row 3"):
+        PoseStream(path)

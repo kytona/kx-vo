@@ -1,0 +1,72 @@
+{
+  "idle": [
+    {
+      "passed": true,
+      "ticks": 2000,
+      "rate_hz": 1200,
+      "pause_wall_s": 0.5,
+      "held_at_tick": 1000,
+      "first_counter": 0,
+      "final_counter": 2000,
+      "servo_packets_sha256": "144341e5550cd5f7f0c90632a926f37b1adae03c417fdaa047556bda33126388",
+      "arducopter_sha256": "4f7f2cd60e62780a451a221784e96eb8d858480f23ae20962e84a15b6666a288"
+    },
+    {
+      "passed": true,
+      "ticks": 2000,
+      "rate_hz": 1200,
+      "pause_wall_s": 0.5,
+      "held_at_tick": 1000,
+      "first_counter": 0,
+      "final_counter": 2000,
+      "servo_packets_sha256": "144341e5550cd5f7f0c90632a926f37b1adae03c417fdaa047556bda33126388",
+      "arducopter_sha256": "4f7f2cd60e62780a451a221784e96eb8d858480f23ae20962e84a15b6666a288"
+    },
+    {
+      "passed": true,
+      "ticks": 2000,
+      "rate_hz": 1200,
+      "pause_wall_s": 0.5,
+      "held_at_tick": 1000,
+      "first_counter": 0,
+      "final_counter": 2000,
+      "servo_packets_sha256": "144341e5550cd5f7f0c90632a926f37b1adae03c417fdaa047556bda33126388",
+      "arducopter_sha256": "4f7f2cd60e62780a451a221784e96eb8d858480f23ae20962e84a15b6666a288"
+    }
+  ],
+  "loaded": [
+    {
+      "passed": true,
+      "ticks": 2000,
+      "rate_hz": 1200,
+      "pause_wall_s": 0.5,
+      "held_at_tick": 1000,
+      "first_counter": 0,
+      "final_counter": 2000,
+      "servo_packets_sha256": "144341e5550cd5f7f0c90632a926f37b1adae03c417fdaa047556bda33126388",
+      "arducopter_sha256": "4f7f2cd60e62780a451a221784e96eb8d858480f23ae20962e84a15b6666a288"
+    },
+    {
+      "passed": true,
+      "ticks": 2000,
+      "rate_hz": 1200,
+      "pause_wall_s": 0.5,
+      "held_at_tick": 1000,
+      "first_counter": 0,
+      "final_counter": 2000,
+      "servo_packets_sha256": "144341e5550cd5f7f0c90632a926f37b1adae03c417fdaa047556bda33126388",
+      "arducopter_sha256": "4f7f2cd60e62780a451a221784e96eb8d858480f23ae20962e84a15b6666a288"
+    },
+    {
+      "passed": true,
+      "ticks": 2000,
+      "rate_hz": 1200,
+      "pause_wall_s": 0.5,
+      "held_at_tick": 1000,
+      "first_counter": 0,
+      "final_counter": 2000,
+      "servo_packets_sha256": "144341e5550cd5f7f0c90632a926f37b1adae03c417fdaa047556bda33126388",
+      "arducopter_sha256": "4f7f2cd60e62780a451a221784e96eb8d858480f23ae20962e84a15b6666a288"
+    }
+  ]
+}

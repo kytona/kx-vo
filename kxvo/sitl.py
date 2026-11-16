@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import argparse
-from collections import deque
+from collections import Counter, deque
 import json
 import math
 from pathlib import Path
@@ -20,6 +20,7 @@ import numpy as np
 from .geometry import camera_to_body, euler_to_rot
 from .mav import mavutil, vision_position_estimate
 from .pipeline import Mount, Pipeline
+from .pose_stream import PoseStream
 from .synth import Room, default_camera, render
 from .trackers import DescriptorTracker, sha256
 from .train import motion_blur
@@ -98,7 +99,14 @@ def ekf_evidence(log, outlier_usec=None, outlier_m=0):
 
 
 def run(args, mav, recorder):
+    use_boot_clock = args.clock == "autopilot"
+    boot_ms = None
+    clock_updates = 0
+    stream = PoseStream(args.pose_stream) if args.pose_stream else None
+    fixture = args.fixture or stream is not None
+    stream_anchor, last_published_record = None, None
     rng = np.random.default_rng(args.seed)
+    faults = np.random.default_rng(np.random.SeedSequence([args.seed, 1]))
     camera = default_camera()
     if args.gazebo_camera_frame:
         camera.uptilt_deg = -15.0
@@ -110,14 +118,16 @@ def run(args, mav, recorder):
     tracker = None if args.tracker == "klt" else DescriptorTracker(
         args.tracker, 300, args.checkpoint, args.xfeat_source)
     pipe = Pipeline(camera, mount, tracker=tracker)
-    room = Room(seed=args.seed) if not args.fixture else None
+    room = Room(seed=args.seed) if not fixture else None
     blank_image = np.zeros((camera.height, camera.width), dtype=np.uint8)
     queue = deque(maxlen=5)
     epoch = time.monotonic()
     next_send, last_capture, last_processed, last_pose_send = 0, -1, -1, -1
     last_heartbeat = last_control = -1
+    now = 0.0
     phase = "startup"
-    sent = frames = dropped = valid = 0
+    sent = frames = valid = 0
+    drops = Counter()
     origin = start_pos = None
     armed_at = switched_at = None
     first_truth = None
@@ -154,13 +164,19 @@ def run(args, mav, recorder):
         raise ValueError("Uplink budget cannot carry four nominal poses per second")
 
     with status_file.open("x") as trace:
-        while (now := time.monotonic() - epoch) < args.timeout:
+        while time.monotonic() - epoch < args.timeout:
             message = mav.recv_match(blocking=True, timeout=0.01)
-            if now - last_heartbeat >= 1:
+            host_t = time.monotonic() - epoch
+            kind = message.get_type() if message is not None else None
+            if use_boot_clock and kind == "SYSTEM_TIME":
+                if boot_ms is None or message.time_boot_ms > boot_ms:
+                    boot_ms = message.time_boot_ms
+                    clock_updates += 1
+            now = (boot_ms or 0) / 1000 if use_boot_clock else host_t
+            if host_t - last_heartbeat >= 1:
                 mav.mav.heartbeat_send(mavutil.mavlink.MAV_TYPE_GCS, 0, 0, 0, 0)
-                last_heartbeat = now
+                last_heartbeat = host_t
             if message is not None:
-                kind = message.get_type()
                 states[kind] = (now, message)
                 if kind in {"ATTITUDE", "DISTANCE_SENSOR"}:
                     earliest = max(now, downlink_next)
@@ -181,7 +197,10 @@ def run(args, mav, recorder):
                     if not stream_setup:
                         att_rate = 15 if args.downlink_bps else 30
                         range_rate = 10 if args.downlink_bps else 30
-                        for msg_id, rate in [(108, 30), (30, att_rate), (132, range_rate), (193, 5), (32, 10)]:
+                        rates = [(108, 30), (30, att_rate), (132, range_rate), (193, 5), (32, 10)]
+                        if use_boot_clock:
+                            rates.insert(0, (2, 60))
+                        for msg_id, rate in rates:
                             request_message(mav, msg_id, rate)
                         stream_setup = True
                         received_since = now
@@ -249,10 +268,10 @@ def run(args, mav, recorder):
                                 rgb = np.frombuffer(payload, dtype=np.uint8, offset=16).reshape(240, 320, 3)
                                 image = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
                     else:
-                        image = blank_image if args.fixture else render(
+                        image = blank_image if fixture else render(
                             room, camera, body @ camera_to_body(camera.uptilt_deg),
                             room_pos + body @ np.asarray(mount.camera_B), rng=rng)
-                    if args.exposure_ms and not args.fixture and image is not None:
+                    if args.exposure_ms and not fixture and image is not None:
                         dx, dy = state.zgyro, state.ygyro
                         length = min(31, max(args.blur_min_px, round(
                             camera.fx * math.hypot(dx, dy) * args.exposure_ms / 1000)))
@@ -262,15 +281,19 @@ def run(args, mav, recorder):
                         image = motion_blur(image, length, math.atan2(dy, dx))
                     blackout = (args.blackout_seconds > 0 and switched_at is not None
                                 and 2 <= now - switched_at < 2 + args.blackout_seconds)
-                    if image is None:
-                        pass
-                    elif blackout or len(queue) == queue.maxlen or rng.random() < args.drop:
-                        dropped += 1
-                    else:
-                        delay = max(0, args.delay_ms + rng.normal(0, args.jitter_ms)) / 1000
-                        queue.append((capture_time + delay, capture_time, image, p_local, attitude, camera_stamp, sample_t))
-                        queue = deque(sorted(queue, key=lambda item: item[0]), maxlen=queue.maxlen)
-                        peak_queue = max(peak_queue, len(queue))
+                    if image is not None:
+                        injected = faults.random() < args.drop
+                        delay = max(0, args.delay_ms + faults.normal(0, args.jitter_ms)) / 1000
+                        if blackout:
+                            drops["blackout"] += 1
+                        elif injected:
+                            drops["injected_random"] += 1
+                        elif len(queue) == queue.maxlen:
+                            drops["queue_full"] += 1
+                        else:
+                            queue.append((capture_time + delay, capture_time, image, p_local, attitude, camera_stamp, sample_t))
+                            queue = deque(sorted(queue, key=lambda item: item[0]), maxlen=queue.maxlen)
+                            peak_queue = max(peak_queue, len(queue))
                 if queue and queue[0][0] <= now:
                     _, capture, image, truth, truth_att, camera_stamp, truth_sample = queue.popleft()
                     # ArduPilot's real telemetry and frames share the receive clock here.
@@ -278,22 +301,37 @@ def run(args, mav, recorder):
                     range_entry = states.get("budgeted_DISTANCE_SENSOR")
                     stale_attitude = att_entry is None or now - att_entry[0] > 0.2
                     stale_range = range_entry is None or now - range_entry[0] > 0.2
-                    missing_sensor = not args.fixture and (stale_attitude or
+                    missing_sensor = not fixture and (stale_attitude or
                                      (stale_range and not args.simulated_plane_range))
-                    if capture <= last_processed or now - capture > 0.2 or missing_sensor:
-                        dropped += 1
+                    if capture <= last_processed:
+                        drops["reordered"] += 1
+                        continue
+                    if now - capture > 0.2:
+                        drops["stale_frame"] += 1
+                        continue
+                    if missing_sensor:
+                        drops["missing_or_stale_telemetry"] += 1
                         continue
                     last_processed = capture
-                    attitude = truth_att if args.fixture else tuple(
+                    attitude = truth_att if fixture else tuple(
                         getattr(att_entry[1], axis) for axis in ("roll", "pitch", "yaw"))
-                    if args.fixture or args.simulated_plane_range:
+                    if fixture or args.simulated_plane_range:
                         distance = -truth[2] / max(0.1, math.cos(truth_att[0]) * math.cos(truth_att[1]))
                     else:
                         distance = range_entry[1].current_distance / 100
                     started = time.monotonic()
                     if first_truth is None:
                         first_truth = truth.copy()
-                    if args.fixture:
+                    source_stamp = None
+                    if stream is not None:
+                        if stream_anchor is None:
+                            stream_anchor = capture
+                        source_stamp, out = stream.sample(capture - stream_anchor)
+                        if out is None:
+                            out = SimpleNamespace(p_WB=np.zeros(3), rpy=(0, 0, 0), valid=False,
+                                                  status="missing or stale recorded pose",
+                                                  reset_counter=0, pos_sigma_m=0.05)
+                    elif args.fixture:
                         out = SimpleNamespace(p_WB=truth - first_truth, rpy=truth_att, valid=True,
                                               status="truth fixture", reset_counter=0, pos_sigma_m=0.05)
                     else:
@@ -309,7 +347,9 @@ def run(args, mav, recorder):
                                      states.get("LOCAL_POSITION_NED", (None, None))[1]))
                     stopped = (args.stop_poses_after is not None and switched_at is not None and
                                now - switched_at >= args.stop_poses_after)
-                    if pose is not None and now >= last_pose_send and not stopped and camera_guard is None:
+                    fresh_record = stream is None or source_stamp != last_published_record
+                    if pose is not None and fresh_record and now >= last_pose_send and not stopped and camera_guard is None:
+                        last_published_record = source_stamp
                         if args.outlier_m and switched_at is not None and now - switched_at > 1 and not injected_outlier:
                             pose = pose + np.array([args.outlier_m, 0, 0])
                             injected_outlier = True
@@ -336,6 +376,8 @@ def run(args, mav, recorder):
                               "p": out.p_WB.tolist(), "rpy": out.rpy, "truth_p": truth.tolist(),
                               "truth_rpy": truth_att, "reset": out.reset_counter, "processing_ms": process_ms,
                               "pose_count": sent, "pose_bytes": pose_bytes, "frame_age_ms": (now - capture) * 1000}
+                    if stream is not None:
+                        record["pose_stream_t"] = source_stamp
                     if camera_stamp is not None:
                         record.update(camera_sim_ns=camera_stamp,
                                       camera_to_truth_receive_delta_ms=(truth_sample - capture) * 1000)
@@ -387,12 +429,15 @@ def run(args, mav, recorder):
     if hold_truth:
         metrics["drift_m"] = float(np.max(np.linalg.norm(np.array(hold_truth) - hold_truth[0], axis=1)))
         metrics["truth_samples"] = len(hold_truth)
-    return {"mode": "truth fixture" if args.fixture else "live kx-vo", "tracker": args.tracker,
+    return {"mode": "recorded pose stream" if stream else "truth fixture" if args.fixture else "live kx-vo",
+            "pose_stream_sha256": sha256(args.pose_stream) if stream else None, "tracker": args.tracker,
             "checkpoint_sha256": tracker.checkpoint_hash if tracker else None, "phase": phase,
             "camera_guard": camera_guard,
             "camera_source": "Gazebo RGB" if args.gazebo_camera_frame else "truth fixture" if args.fixture else "synthetic room",
             "range_source": "simulator truth and floor plane" if args.simulated_plane_range else "MAVLink range",
-            "frames": frames, "valid_frames": valid, "dropped": dropped, "poses_sent": sent, "pose_bytes": pose_bytes,
+            "frames": frames, "valid_frames": valid, "dropped": sum(drops.values()),
+            "frame_drops": dict(drops), "clock": args.clock, "boot_clock_updates": clock_updates,
+            "poses_sent": sent, "pose_bytes": pose_bytes,
             "outlier_injected": injected_outlier, "downlink_dropped": downlink_dropped, "peak_frame_queue": peak_queue, "fallback_commanded": fallback_sent,
             "statuses": statuses, "hold": metrics,
             "hold_poses": hold_poses, "max_hold_pose_gap_s": max(hold_pose_gaps, default=None),
@@ -487,12 +532,16 @@ def main(argv=None):
                         help="Atomic latest-frame file written by the Gazebo RGB relay")
     parser.add_argument("--simulated-plane-range", action="store_true",
                         help="Derive the slant range to the native renderer's flat floor")
+    parser.add_argument("--clock", choices=("host", "autopilot"), default="host",
+                        help="Use monotonic host receipt or the ArduCopter SYSTEM_TIME boot clock")
     parser.add_argument("--params", type=Path, default=Path("params/sitl-kxvo.parm"))
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--tracker", choices=("klt", "orb", "xfeat"), default="klt")
     parser.add_argument("--checkpoint", type=Path)
     parser.add_argument("--xfeat-source", type=Path, default=Path("runs/xfeat-upstream"))
-    parser.add_argument("--fixture", action="store_true")
+    provider = parser.add_mutually_exclusive_group()
+    provider.add_argument("--fixture", action="store_true")
+    provider.add_argument("--pose-stream", type=Path, help="Recorded JSONL with elapsed t, NED p and FRD attitude rpy")
     parser.add_argument("--outlier-m", type=float, default=0,
                         help="Inject one north-position jump after switching to ExternalNav")
     parser.add_argument("--stop-poses-after", type=float,
@@ -523,7 +572,9 @@ def main(argv=None):
         parser.error("Use a drop probability in [0, 1) and a positive uplink budget")
     if min(args.delay_ms, args.jitter_ms, args.exposure_ms, args.blackout_seconds, args.downlink_bps) < 0:
         parser.error("Delay, jitter, exposure and blackout must be nonnegative")
-    if args.gazebo_camera_frame and (args.json_physics_port is None or args.fixture):
+    if args.clock == "autopilot" and args.json_physics_port is not None:
+        parser.error("Autopilot-clock scheduling currently supports native SITL")
+    if args.gazebo_camera_frame and (args.json_physics_port is None or args.fixture or args.pose_stream):
         parser.error("The Gazebo image relay requires JSON physics and a live tracker")
     if args.stop_poses_after is not None and not 0 <= args.stop_poses_after < args.hold_seconds:
         parser.error("Pose stop time must fall inside the ExternalNav hold")

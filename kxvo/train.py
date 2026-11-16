@@ -67,21 +67,48 @@ def image_tensor(image, device):
     return torch.as_tensor(image.copy(), dtype=torch.float32, device=device)[None, None] / 255
 
 
-def correspondence_loss(first, second, reliability_a, reliability_b, a, b):
+def correspondence_loss(first, second, a, b):
     import torch
     from torch.nn import functional as F
-    # Bidirectional correspondence classification as in upstream XFeat.
+
     x = first[:, a[:, 1], a[:, 0]].T
     y = second[:, b[:, 1], b[:, 0]].T
     logits = (x @ y.T) * 0.2
     target = torch.arange(len(a), device=logits.device)
-    descriptor = F.cross_entropy(logits, target) + F.cross_entropy(logits.T, target)
-    with torch.no_grad():
-        # Use probability of the known match in each direction.
-        confidence = logits.softmax(dim=1).diagonal() * logits.softmax(dim=0).diagonal()
-    reliability = (F.l1_loss(reliability_a[0, a[:, 1], a[:, 0]], confidence)
-                   + F.l1_loss(reliability_b[0, b[:, 1], b[:, 0]], confidence))
-    return descriptor + 3.0 * reliability
+    return F.cross_entropy(logits, target) + F.cross_entropy(logits.T, target)
+
+
+def teacher_reliability(teacher, image, device):
+    import torch
+
+    with torch.inference_mode():
+        return teacher.net(image_tensor(image, device))[2][0, 0].cpu().numpy()
+
+
+def reliability_loss(predicted, target, inverse=None):
+    import torch
+    from torch.nn.functional import l1_loss
+
+    h, w = target.shape
+    valid = np.ones((h, w), bool)
+    if inverse is not None:
+        x, y = np.meshgrid(np.arange(w) * 8 + 4, np.arange(h) * 8 + 4)
+        source = (project(np.column_stack((x.ravel(), y.ravel())), inverse).reshape(h, w, 2) - 4) / 8
+        valid = ((source[..., 0] >= 0) & (source[..., 0] <= w - 1) &
+                 (source[..., 1] >= 0) & (source[..., 1] <= h - 1))
+        target = cv2.remap(target, source[..., 0], source[..., 1], cv2.INTER_LINEAR)
+    if not valid.any():
+        return predicted.sum() * 0
+    mask = torch.as_tensor(valid, device=predicted.device)
+    values = torch.as_tensor(target, device=predicted.device)
+    return l1_loss(predicted[0][mask], values[mask])
+
+
+def verify_manifest(path, expected):
+    digest = sha256(path)
+    if expected is not None and digest != expected:
+        raise ValueError(f"Manifest SHA-256 mismatch for {path}: expected {expected}, got {digest}")
+    return digest
 
 
 def read_manifest(path, required_splits=("train", "validation")):
@@ -174,7 +201,7 @@ def save_validation_overlays(images, max_blur, output):
 def detector_targets(teacher, clean, warp):
     """Use clean pretrained detections as pseudo-labels in both warped views."""
     points = teacher.detectAndCompute(clean, top_k=clean.size)[0]["keypoints"].cpu().numpy()
-    return points, project(points, warp) if len(points) else points
+    return points, project(points, warp) if warp is not None and len(points) else points
 
 
 def detector_loss(logits, points, rng, inverse_warp=None):
@@ -220,16 +247,40 @@ def load_images(rows, splits, width, height):
 
 
 def validate_trajectory(args, output, checkpoint, step):
-    if args.validation_scenario is None:
-        return {}
+    if not args.validation_scenario:
+        return {}, {}
     from .scenario import run
-    directory = output / f"trajectory-{step}"
-    exit_code = run(args.validation_scenario, directory, "xfeat", checkpoint, args.device)
-    report = json.loads((directory / "score.json").read_text())
-    if exit_code == 2:
-        raise ValueError(f"Invalid development trajectory: {report['reason']}")
-    return {"trajectory": {"verdict": report["verdict"], "metrics": report["metrics"],
-                           "manifest_sha256": report["manifest_sha256"]}}
+    results, traces = [], {}
+    for index, scenario in enumerate(args.validation_scenario):
+        directory = output / f"trajectory-{step}" / str(index + 1)
+        details = {}
+        exit_code = run(scenario, directory, "xfeat", checkpoint, args.device, details)
+        report = json.loads((directory / "score.json").read_text())
+        if exit_code == 2:
+            raise ValueError(f"Invalid development trajectory: {report['reason']}")
+        results.append({"verdict": report["verdict"], "metrics": report["metrics"],
+                        "manifest_sha256": report["manifest_sha256"],
+                        "recording_sha256": report["recording_log_sha256"]})
+        traces[index] = details
+    return {"trajectories": results}, traces
+
+
+def trajectory_comparison(baseline, candidate):
+    from .score import compare_windows
+
+    scores = [compare_windows({"baseline": baseline[index], "candidate": trace})
+              for index, trace in candidate.items()]
+    gains = []
+    for result in scores:
+        reference = result["arms"]["baseline"]
+        model = result["arms"]["candidate"]
+        a, b = reference["median_translation_m"], model["median_translation_m"]
+        if (a is None or b is None or a <= 0 or not result["eligible"]
+                or model["lost"] > reference["lost"]
+                or result["common"] < 0.7 * result["eligible"]):
+            return None, scores
+        gains.append((a - b) / a)
+    return (float(np.median(gains)) if min(gains) > 0 else None), scores
 
 
 def train_seed(args, rows, seed, geometric=None):
@@ -238,29 +289,40 @@ def train_seed(args, rows, seed, geometric=None):
     torch.manual_seed(seed)
     rng = np.random.default_rng(seed)
     model = load_xfeat(args.xfeat_source, args.checkpoint, args.device)
-    teacher = load_xfeat(args.xfeat_source, args.checkpoint, args.device) if args.train_detector else None
+    teacher = load_xfeat(args.xfeat_source, args.checkpoint, args.device)
+    clean_supervision = {}
+
+    def labels(image):
+        key = id(image)
+        if key not in clean_supervision:
+            points = detector_targets(teacher, image, None)[0] if args.train_detector else None
+            clean_supervision[key] = (teacher_reliability(teacher, image, args.device), points)
+        return clean_supervision[key]
     output = args.output / f"seed-{seed}"
     output.mkdir(parents=True, exist_ok=False)
     paths = load_images(rows, ("train", "validation"), args.width, args.height)
     manifest = [{k: v for k, v in row.items() if k != "file"} for row in rows]
-    config = {k: str(v) if isinstance(v, Path) else v for k, v in vars(args).items()}
+    config = json.loads(json.dumps(vars(args), default=str))
     provenance = {"config": config, "seed": seed, "torch": torch.__version__, "opencv": cv2.__version__,
                   "base_sha256": sha256(args.checkpoint), "xfeat_revision": XFEAT_REV, "manifest": manifest,
-                  "teacher": "pinned XFeat on clean frames" if teacher else None,
-                  "reliability_target": "product of detached forward and reverse true-match probabilities"}
+                  "manifest_sha256": sha256(args.manifest),
+                  "teacher": "pinned XFeat on clean frames",
+                  "reliability_target": "clean teacher reliability map, inverse-warped with valid-cell mask"}
     if args.geometric_pairs:
         provenance["geometric_pairs_sha256"] = sha256(args.geometric_pairs)
     (output / "provenance.json").write_text(json.dumps(provenance, indent=2) + "\n")
     # The fine matcher is outside the sparse pipeline.
     for name, parameter in model.net.named_parameters():
-        if name.startswith("fine_matcher") or (not teacher and name.startswith("keypoint_head")):
+        if name.startswith("fine_matcher") or (not args.train_detector and name.startswith("keypoint_head")):
             parameter.requires_grad_(False)
     opt = torch.optim.Adam([p for p in model.net.parameters() if p.requires_grad], lr=args.lr)
     geometric_training = geometric is not None and not args.warp_supervision
     validation = list(geometric["validation"].values()) if geometric else paths["validation"]
     baseline = evaluate_pairs(model, validation, args.max_blur, geometric=bool(geometric))
-    best = baseline["blur"]["recall"]
-    baseline_trajectory = validate_trajectory(args, output, args.checkpoint, 0)
+    best = 0.0 if args.select_on_trajectory else baseline["blur"]["recall"]
+    baseline_trajectory, baseline_windows = validate_trajectory(args, output, args.checkpoint, 0)
+    if args.select_on_trajectory and len({r["recording_sha256"] for r in baseline_trajectory["trajectories"]}) < 5:
+        raise ValueError("Trajectory selection needs five distinct recording logs")
     (output / "validation.jsonl").write_text(json.dumps({"step": 0, **baseline, **baseline_trajectory}) + "\n")
     if geometric:
         from .geometric_pairs import save_overlays
@@ -303,16 +365,19 @@ def train_seed(args, rows, seed, geometric=None):
                 p_sel = torch.as_tensor(p[idx], device=args.device)
                 q_sel = torch.as_tensor(q[idx], device=args.device)
                 other = i + len(batch)
-                loss = correspondence_loss(features[i], features[other], reliability[i], reliability[other],
-                                           p_sel, q_sel)
-                if teacher:
-                    if geometric_training:
-                        left, _ = detector_targets(teacher, chosen[i].first, np.eye(3))
-                        right, _ = detector_targets(teacher, chosen[i].second, np.eye(3))
-                        inverse = None
-                    else:
-                        left, right = detector_targets(teacher, clean_batch[i], warp)
-                        inverse = np.linalg.inv(warp)
+                loss = correspondence_loss(features[i], features[other], p_sel, q_sel)
+                training_map, left = labels(clean_batch[i])
+                if geometric_training:
+                    right_map, right = labels(chosen[i].second)
+                    inverse = None
+                else:
+                    right_map, right = training_map, None
+                    inverse = np.linalg.inv(warp)
+                    if left is not None:
+                        right = project(left, warp) if len(left) else left
+                loss += 3.0 * (reliability_loss(reliability[i], training_map) +
+                               reliability_loss(reliability[other], right_map, inverse))
+                if args.train_detector:
                     loss += 0.25 * (detector_loss(logits[i], left, rng) +
                                     detector_loss(logits[other], right, rng, inverse))
                 losses.append(loss)
@@ -328,13 +393,22 @@ def train_seed(args, rows, seed, geometric=None):
             scores = evaluate_pairs(model, validation, args.max_blur, geometric=bool(geometric))
             save = output / f"step-{step}.pt"
             torch.save(model.net.state_dict(), save)
-            trajectory = validate_trajectory(args, output, save, step)
-            selected = (scores["blur"]["recall"] > best
-                        and scores["blur"]["recall"] >= baseline["blur"]["recall"] + args.min_blur_gain
-                        and scores["clean"]["recall"] >= baseline["clean"]["recall"] - args.max_clean_loss
-                        and scores["blur"]["coverage_8x6"] >= baseline["blur"]["coverage_8x6"])
+            trajectory, windows = validate_trajectory(args, output, save, step)
+            if windows:
+                gain, paired = trajectory_comparison(baseline_windows, windows)
+                trajectory.update(paired_trajectories=paired, trajectory_gain=gain)
+            if args.select_on_trajectory:
+                candidate_score = gain if gain is not None else 0.0
+                selected = (candidate_score >= 0.15 and candidate_score > best and
+                            scores["clean"]["recall"] >= baseline["clean"]["recall"] - args.max_clean_loss)
+            else:
+                candidate_score = scores["blur"]["recall"]
+                selected = (candidate_score > best
+                            and candidate_score >= baseline["blur"]["recall"] + args.min_blur_gain
+                            and scores["clean"]["recall"] >= baseline["clean"]["recall"] - args.max_clean_loss
+                            and scores["blur"]["coverage_8x6"] >= baseline["blur"]["coverage_8x6"])
             if selected:
-                best = scores["blur"]["recall"]
+                best = candidate_score
                 (output / "selected.json").write_text(json.dumps({"checkpoint": save.name, "sha256": sha256(save)}) + "\n")
             with (output / "validation.jsonl").open("a") as log:
                 log.write(json.dumps({"step": step, "loss": float(np.mean(interval_losses)), "seconds": time.monotonic() - started,
@@ -349,6 +423,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--manifest-sha256", help="Expected SHA-256 of the frozen CSV")
     parser.add_argument("--xfeat-source", type=Path, default=Path("runs/xfeat-upstream"))
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--device", default="cpu")
@@ -363,11 +438,14 @@ def main(argv=None):
     parser.add_argument("--max-blur", type=int, default=11)
     parser.add_argument("--geometric-pairs", type=Path, help="TartanAir pairs.csv for depth/pose supervision")
     parser.add_argument("--warp-supervision", action="store_true", help="Use homographies for training and score the same geometric validation pairs")
-    parser.add_argument("--validation-scenario", type=Path,
+    parser.add_argument("--validation-scenario", type=Path, action="append",
                         help="Optional development-only kxbench replay scenario, scored at every validation")
+    parser.add_argument("--select-on-trajectory", action="store_true")
     parser.add_argument("--min-blur-gain", type=float, default=0.01)
     parser.add_argument("--max-clean-loss", type=float, default=0.02)
     args = parser.parse_args(argv)
+    if args.select_on_trajectory and len(set(args.validation_scenario or [])) < 5:
+        parser.error("Trajectory selection needs at least five distinct development scenarios")
     if not 0 < args.min_blur_gain <= 1 or not 0 <= args.max_clean_loss <= 1:
         parser.error("Selection tolerances must be recall fractions in range")
     if min(args.steps, args.batch, args.validate_every) < 1 or args.max_blur < 3 or args.lr <= 0:
@@ -378,6 +456,7 @@ def main(argv=None):
         parser.error("The training seed checkpoint must match the pinned official XFeat SHA-256")
     if len(set(args.seeds)) != len(args.seeds):
         parser.error("Use distinct seeds")
+    verify_manifest(args.manifest, args.manifest_sha256)
     rows = read_manifest(args.manifest)
     geometric = None
     if args.warp_supervision and not args.geometric_pairs:

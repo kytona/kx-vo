@@ -1,0 +1,234 @@
+{
+  "device": "cpu",
+  "fixture_seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "comparisons": {
+    "clean": [
+      {
+        "eligible": 509,
+        "common": 509,
+        "arms": {
+          "klt": {
+            "lost": 0,
+            "median_translation_m": 0.150632050494829
+          },
+          "orb": {
+            "lost": 0,
+            "median_translation_m": 0.12343929238489601
+          },
+          "xfeat": {
+            "lost": 0,
+            "median_translation_m": 0.09279307445800626
+          }
+        }
+      },
+      {
+        "eligible": 509,
+        "common": 320,
+        "arms": {
+          "klt": {
+            "lost": 95,
+            "median_translation_m": 0.05978376241105966
+          },
+          "orb": {
+            "lost": 89,
+            "median_translation_m": 0.0733143305327151
+          },
+          "xfeat": {
+            "lost": 94,
+            "median_translation_m": 0.1788557949997609
+          }
+        }
+      },
+      {
+        "eligible": 509,
+        "common": 318,
+        "arms": {
+          "klt": {
+            "lost": 102,
+            "median_translation_m": 0.09648653368037297
+          },
+          "orb": {
+            "lost": 0,
+            "median_translation_m": 0.06292887016390167
+          },
+          "xfeat": {
+            "lost": 89,
+            "median_translation_m": 0.11296894721400713
+          }
+        }
+      },
+      {
+        "eligible": 509,
+        "common": 410,
+        "arms": {
+          "klt": {
+            "lost": 99,
+            "median_translation_m": 0.0720613332951035
+          },
+          "orb": {
+            "lost": 0,
+            "median_translation_m": 0.07073057615009437
+          },
+          "xfeat": {
+            "lost": 0,
+            "median_translation_m": 0.11100970380401501
+          }
+        }
+      },
+      {
+        "eligible": 509,
+        "common": 509,
+        "arms": {
+          "klt": {
+            "lost": 0,
+            "median_translation_m": 0.07079249105283757
+          },
+          "orb": {
+            "lost": 0,
+            "median_translation_m": 0.045411160800494184
+          },
+          "xfeat": {
+            "lost": 0,
+            "median_translation_m": 0.2866023445162723
+          }
+        }
+      }
+    ],
+    "blur": [
+      {
+        "eligible": 509,
+        "common": 509,
+        "arms": {
+          "klt": {
+            "lost": 0,
+            "median_translation_m": 0.15127903119835645
+          },
+          "orb": {
+            "lost": 0,
+            "median_translation_m": 0.13708163628670542
+          },
+          "xfeat": {
+            "lost": 0,
+            "median_translation_m": 0.2231867563302763
+          }
+        }
+      },
+      {
+        "eligible": 509,
+        "common": 326,
+        "arms": {
+          "klt": {
+            "lost": 0,
+            "median_translation_m": 0.046711249194675675
+          },
+          "orb": {
+            "lost": 89,
+            "median_translation_m": 0.059481811323736256
+          },
+          "xfeat": {
+            "lost": 94,
+            "median_translation_m": 0.2885427625652914
+          }
+        }
+      },
+      {
+        "eligible": 509,
+        "common": 420,
+        "arms": {
+          "klt": {
+            "lost": 0,
+            "median_translation_m": 0.037871237285508216
+          },
+          "orb": {
+            "lost": 0,
+            "median_translation_m": 0.06250842175793489
+          },
+          "xfeat": {
+            "lost": 89,
+            "median_translation_m": 0.07648910605597896
+          }
+        }
+      },
+      {
+        "eligible": 509,
+        "common": 399,
+        "arms": {
+          "klt": {
+            "lost": 0,
+            "median_translation_m": 0.05493451765479841
+          },
+          "orb": {
+            "lost": 0,
+            "median_translation_m": 0.07323258223099191
+          },
+          "xfeat": {
+            "lost": 110,
+            "median_translation_m": 0.10241123656855347
+          }
+        }
+      },
+      {
+        "eligible": 509,
+        "common": 509,
+        "arms": {
+          "klt": {
+            "lost": 0,
+            "median_translation_m": 0.05149554627192957
+          },
+          "orb": {
+            "lost": 0,
+            "median_translation_m": 0.04936593399065956
+          },
+          "xfeat": {
+            "lost": 0,
+            "median_translation_m": 0.16609865964949252
+          }
+        }
+      }
+    ]
+  },
+  "repeat_blur_klt_seed_1_range_m": [
+    0.15127903119835645,
+    0.15127903119835645
+  ],
+  "paired_fixture_bootstrap": {
+    "clean": {
+      "orb": {
+        "median_delta_from_klt_m": -0.025381330252343383,
+        "exploratory_bootstrap_interval_m": [
+          -0.0335576635164713,
+          0.013530568121655442
+        ]
+      },
+      "xfeat": {
+        "median_delta_from_klt_m": 0.038948370508911506,
+        "exploratory_bootstrap_interval_m": [
+          -0.05783897603682274,
+          0.21580985346343473
+        ]
+      }
+    },
+    "blur": {
+      "orb": {
+        "median_delta_from_klt_m": 0.01277056212906058,
+        "exploratory_bootstrap_interval_m": [
+          -0.014197394911651035,
+          0.024637184472426674
+        ]
+      },
+      "xfeat": {
+        "median_delta_from_klt_m": 0.07190772513191984,
+        "exploratory_bootstrap_interval_m": [
+          0.03861786877047074,
+          0.2418315133706157
+        ]
+      }
+    }
+  }
+}

@@ -35,13 +35,13 @@ Use a fresh output directory for each run. Exit status `0` means the run met its
 | Native ArduPilot fallback | Stock KLT and pretrained XFeat each passed 3/3 runs. DataFlash confirmed the switch from ExternalNav to optical flow. |
 | Native motion-blur box | Stock KLT reached all four waypoints of the 0.7 m box and landed. Simulated angular motion produced at least 3 px of blur on 334 frames. |
 | Pose-stream injection | DataFlash confirmed rejection of a 5 m outlier. The deliberate stale stream failed acceptance. |
-| ArduPilot JSON clock | The stationary fixture produced identical 2,000-tick traces across three normal runs and three with two busy CPU workers. |
+| ArduPilot JSON clock | The stationary fixture completed 2,000 exchanges per run. The received servo packets matched across three normal runs and three with two busy CPU workers. |
 | Gazebo Harmonic RGB | The 15° downward camera profile passed clean ExternalNav and blackout-to-GPS recovery. Clean hold estimator RMS was 0.093 m horizontally. |
 | XFeat fine-tuning | Depth-and-pose supervision beat the warp-trained controls on the same real-viewpoint validation pairs. Neither seed reached the blur-recall gain required for held-out testing. |
 
 The passing Gazebo profile uses emulated floor range and host receive times to associate camera frames with simulator truth. The report includes earlier camera configurations that exceeded the error limit. [Simulator and geometric training results](results/benchmark-followthrough/README.md)
 
-On three blurred synthetic replays at 640 px, the median 5 s relative translation error was 0.059 m for KLT, 0.052 m for ORB and 0.223 m for pretrained XFeat. XFeat’s median per-run p95 processing time on the Mac GPU was 17.9 ms in offline replay. [Replay metrics and ranges](results/tartanair-xfeat-review/README.md)
+On five blurred synthetic CPU replays at 640 px, the median 5 s relative translation error on shared windows was 0.051 m for KLT, 0.063 m for ORB and 0.166 m for pretrained XFeat. The scorer also reports the windows each tracker lost. [Paired replay results](results/reliability-and-clock/README.md)
 
 ## Run the simulator benchmarks
 
@@ -55,7 +55,15 @@ kxbench run experiments/pose-stream-outlier.json --output runs/pose-outlier
 kxbench run experiments/pose-stream-stale.json --output runs/pose-stale
 ```
 
-The stale scenario is expected to exit with status 1. The scorecard and flight directory retain the observations and DataFlash evidence. Run the box and stationary clock probe with the same binary:
+The stale scenario is expected to exit with status 1. The scorecard and flight directory retain the observations and DataFlash evidence.
+
+For your own ExternalNav source, create a version 1 `pose_stream` scenario with a `seed` and a `pose_stream` JSONL path relative to the manifest. Each line supplies elapsed seconds in `t`, position `p` in metres NED relative to the start of the simulated translation, and roll, pitch and yaw `rpy` in radians. Optional fields are `valid`, `sigma_m` and `reset`. Input times must increase. Stale and invalid samples stop publication.
+
+```json
+{"version":1,"track":"pose_stream","seed":1,"pose_stream":"poses.jsonl"}
+```
+
+Run the box and stationary clock probe with the same binary:
 
 ```sh
 python -m kxvo.sitl --arducopter runs/ardupilot/build/sitl/bin/arducopter \
@@ -76,6 +84,8 @@ python -m kxvo.sitl --arducopter runs/ardupilot/build/sitl/bin/arducopter \
 
 For the pretrained arm, install the `xfeat` extra, run `scripts/setup-xfeat.sh`, and add `--tracker xfeat --checkpoint runs/xfeat-upstream/weights/xfeat.pt`. Run the cases serially so they use the same host resources.
 
+For native fallback timing, `--clock autopilot` schedules against ArduCopter's MAVLink boot clock. `scripts/repeat-sitl-clock.sh` runs the same seed three times without added load and three times with two CPU workers. The runner reports injected drops, blackout losses, reordering, queue overflow and stale telemetry separately. Camera truth still arrives through MAVLink. [MAVLink system time](https://mavlink.io/en/messages/common.html#SYSTEM_TIME)
+
 For Gazebo Harmonic, install the platform dependencies and build the pinned ArduPilot plugin. The default launcher uses Gazebo physics with kx-vo’s synthetic renderer. To use the mounted Gazebo RGB camera, set `KXVO_GAZEBO_CAMERA_PYTHON` to an interpreter with the matching `gz.transport13`, `gz.msgs10` and Protobuf packages. [Gazebo setup](https://ardupilot.org/dev/docs/sitl-with-gazebo.html)
 
 ```sh
@@ -95,7 +105,7 @@ scripts/run-geometric-xfeat.sh runs/my-geometric mps
 
 Use `cpu` or `cuda` for the corresponding device. Both scripts start two training seeds from pinned pretrained XFeat weights. The geometric experiment also runs two warp-trained controls. Its labels use neighboring TartanAir RGB frames, depth and camera poses with bidirectional visibility checks. The downloader fetches selected members of the pinned archives and resumes an interrupted download with the same command. [RGB route plan](experiments/tartanair-xfeat.json) · [Geometric route plan](experiments/tartanair-geometry.json) · [TartanAir V2](https://tartanair.org/)
 
-Training writes validation metrics, checkpoint hashes and provenance. Run final evaluation explicitly after freezing the checkpoints. The stage can be `matches`, `replay`, `sitl` or `all`. The matches stage requires MegaDepth-1500 and the SITL stage requires a local ArduCopter build. [MegaDepth setup](https://github.com/verlab/accelerated_features#evaluation)
+The RGB recipe verifies the frozen manifest hash, distils reliability from the pretrained teacher, and runs 10,000 steps per seed by default. It evaluates five synthetic development replays at each checkpoint. Selection requires a median improvement of at least 15% on shared 5 s windows, an improvement on every fixture, preserved window coverage and a clean recall check. The metrics also report windows each arm lost. Run final evaluation explicitly after freezing the checkpoints. The stage can be `matches`, `replay`, `sitl` or `all`. The matches stage requires MegaDepth-1500 and the SITL stage requires a local ArduCopter build. [MegaDepth setup](https://github.com/verlab/accelerated_features#evaluation)
 
 ```sh
 scripts/evaluate-tartanair-xfeat.sh runs/my-tartanair mps replay

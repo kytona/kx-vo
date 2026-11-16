@@ -1,5 +1,9 @@
 # XFeat experiment results
 
+## Paired replay and timing review
+
+The [follow-up review results](reliability-and-clock/README.md) cover shared relative-error windows, fixture-level uncertainty, native boot-clock fallback repeats, recorded pose input and the corrected servo-packet clock check.
+
 ## Geometric training and simulator qualification
 
 The [follow-through results](benchmark-followthrough/README.md) include geometric and warp controls, paired native fallback repeats, the motion-blur box, pose-stream verdicts, JSON clock qualification and Gazebo runs.

@@ -37,7 +37,7 @@ def probe(arducopter, output, ticks, pause_s, instance):
             rate, first = servo_frame(packet)
             before_pause = ticks // 2
             pauses = []
-            clock = hashlib.sha256()
+            servos = hashlib.sha256()
             for step in range(ticks):
                 if step == before_pause:
                     backend.settimeout(pause_s)
@@ -59,7 +59,7 @@ def probe(arducopter, output, ticks, pause_s, instance):
                 packet, peer = backend.recvfrom(128)
                 if peer != sender or servo_frame(packet) != (rate, first + step + 1):
                     raise RuntimeError(f"ArduCopter did not advance exactly one servo counter at tick {step}")
-                clock.update(struct.pack("<Id", first + step + 1, seconds))
+                servos.update(packet)
         finally:
             if process.poll() is None:
                 process.send_signal(signal.SIGINT)
@@ -70,7 +70,7 @@ def probe(arducopter, output, ticks, pause_s, instance):
                     process.wait()
     result = {"passed": all(pauses), "ticks": ticks, "rate_hz": rate, "pause_wall_s": pause_s,
               "held_at_tick": before_pause, "first_counter": first, "final_counter": first + ticks,
-              "clock_sha256": clock.hexdigest(), "arducopter_sha256": sha256(arducopter)}
+              "servo_packets_sha256": servos.hexdigest(), "arducopter_sha256": sha256(arducopter)}
     (output / "summary.json").write_text(json.dumps(result, indent=2) + "\n")
     return result
 

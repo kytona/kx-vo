@@ -54,7 +54,7 @@ def tracking_health(records, max_frame_gap=0.2):
 
 
 def score(records, ref, alignment_seconds=1.0, window=5.0, max_ref_gap=0.15, alignment_start=None,
-          max_frame_gap=0.2):
+          max_frame_gap=0.2, window_details=None):
     t = np.array([r["t"] for r in records])
     result = tracking_health(records, max_frame_gap)
     if len(ref) < 2 or not np.isfinite(ref).all() or np.any(np.diff(t) <= 0) or np.any(np.diff(ref[:, 0]) <= 0):
@@ -69,9 +69,22 @@ def score(records, ref, alignment_seconds=1.0, window=5.0, max_ref_gap=0.15, ali
     estimate = np.array([r["p"][:2] for r in records])
     yaw = np.array([r["rpy"][2] for r in records])
     result.update(reference_covered_frames=int(covered.sum()), valid_covered_frames=int(valid.sum()))
+    fit_start = ref[0, 0] + 1 if alignment_start is None else alignment_start
+    eligible = np.flatnonzero(covered & (t > fit_start + alignment_seconds))
+    partners = np.searchsorted(t, t[eligible] + window)
+    i = eligible[partners < len(t)]
+    j = partners[partners < len(t)]
+    reference_breaks = np.r_[0, np.cumsum((np.diff(ref[:, 0]) > max_ref_gap))]
+    continuous_reference = reference_breaks[lo[i]] == reference_breaks[lo[j]]
+    eligible_pairs = covered[j] & continuous_reference & (t[j] - t[i] <= window + 0.1)
+    i, j = i[eligible_pairs], j[eligible_pairs]
+    windows = list(zip(t[i].tolist(), t[j].tolist()))
+    result.update(relative_windows_eligible=len(windows), relative_windows_lost=len(windows),
+                  relative_pairs=0)
+    if window_details is not None:
+        window_details.update(eligible=set(windows), errors={})
     if not valid.any():
         return result, None
-    fit_start = ref[0, 0] + 1 if alignment_start is None else alignment_start
     fit = valid & (t >= fit_start) & (t <= fit_start + alignment_seconds)
     use = valid & (t > fit_start + alignment_seconds)
     result["alignment_window_s"] = [float(fit_start), float(fit_start + alignment_seconds)]
@@ -91,20 +104,30 @@ def score(records, ref, alignment_seconds=1.0, window=5.0, max_ref_gap=0.15, ali
                   yaw_rms_deg=float(np.degrees(np.sqrt(np.mean(yaw_error[use] ** 2)))),
                   endpoint_error_m=float(error[end]), path_m=path_m,
                   endpoint_error_pct=float(100 * error[end] / path_m) if path_m > 0 else None)
-    partners = np.searchsorted(t, t[eligible] + window)
-    i = eligible[partners < len(t)]
-    j = partners[partners < len(t)]
     resets = np.array([r.get("reset", 0) for r in records])
     interrupted = (~valid[:-1] | ~valid[1:] | (np.diff(t) > max_frame_gap) | (np.diff(resets) != 0))
     segments = np.r_[0, np.cumsum(interrupted)]
-    pairs = use[j] & (segments[i] == segments[j]) & (t[j] - t[i] <= window + 0.1)
+    pairs = use[i] & use[j] & (segments[i] == segments[j])
     i, j = i[pairs], j[pairs]
-    result["relative_pairs"] = len(i)
+    result.update(relative_pairs=len(i), relative_windows_lost=len(windows) - len(i))
     if len(i):
         delta = (aligned[j] - aligned[i]) - (truth[j] - truth[i])
-        result["relative_translation_m_median"] = float(np.median(np.linalg.norm(delta, axis=1)))
+        errors = np.linalg.norm(delta, axis=1)
+        result["relative_translation_m_median"] = float(np.median(errors))
+        if window_details is not None:
+            window_details["errors"] = dict(zip(zip(t[i].tolist(), t[j].tolist()), errors.tolist()))
         result["relative_yaw_deg_median"] = float(np.degrees(np.median(np.abs(wrap(yaw_error[j] - yaw_error[i])))))
     return result, (truth[covered], aligned[valid])
+
+
+def compare_windows(traces):
+    eligible = set.union(*(v["eligible"] for v in traces.values()))
+    common = sorted(set.intersection(eligible, *(set(v["errors"]) for v in traces.values())))
+    return {"eligible": len(eligible), "common": len(common), "arms": {
+        name: {"lost": len(eligible - trace["errors"].keys()),
+               "median_translation_m": float(np.median([trace["errors"][w] for w in common])) if common else None}
+        for name, trace in traces.items()
+    }}
 
 
 def main(argv=None):
@@ -121,6 +144,7 @@ def main(argv=None):
         parser.error("--plot requires --reference")
     reference = load_reference(args.reference) if args.reference else None
     results = {}
+    traces = {}
     if args.plot:
         import matplotlib.pyplot as plt
         _, ax = plt.subplots()
@@ -131,10 +155,13 @@ def main(argv=None):
             results[str(path)] = tracking_health(records, args.max_frame_gap)
             continue
         metrics, trajectory = score(records, reference, alignment_seconds=args.alignment_seconds,
-                                    alignment_start=args.alignment_start, max_frame_gap=args.max_frame_gap)
+                                    alignment_start=args.alignment_start, max_frame_gap=args.max_frame_gap,
+                                    window_details=traces.setdefault(str(path), {}))
         results[str(path)] = metrics
         if args.plot and trajectory is not None:
             ax.plot(trajectory[1][:, 1], trajectory[1][:, 0], label=path.stem)
+    if len(traces) >= 2:
+        results["paired_relative_windows"] = compare_windows(traces)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(results, indent=2, allow_nan=False) + "\n")
     if args.plot:

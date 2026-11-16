@@ -56,16 +56,16 @@ mkdir -p "$dest"
 
 if [[ "$stage" == all || "$stage" == matches ]]; then
     "$py" -m kxvo.xfeat_eval --manifest "$dataset/manifest.csv" --checkpoint "${models[@]}" \
-        --device "$device" --output "$dest/held-out.json"
+        --manifest-sha256 "$(cat experiments/tartanair-xfeat.sha256)" --device "$device" --output "$dest/held-out.json"
     for i in "${!models[@]}"; do
         "$py" -m kxvo.megadepth --dataset "$megadepth" --checkpoint "${models[i]}" \
             --seed 1 2 3 --device "$device" --output "$dest/megadepth-${names[i]}.json"
     done
 fi
 
-# Run each profile serially. The three replay seeds vary the images and sensor noise.
+# Replay seeds vary both room textures and sensor noise.
 if [[ "$stage" == all || "$stage" == replay ]]; then
-    for seed in ${KXVO_SCENARIO_SEEDS:-1 2 3}; do
+    for seed in ${KXVO_SCENARIO_SEEDS:-1 2 3 4 5}; do
         fixture="$dest/fixture-$seed"
         if [[ ! -e "$fixture" ]]; then
             "$py" scripts/make-smoke-data.py "$fixture" --width 640 \
