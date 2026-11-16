@@ -1,0 +1,266 @@
+{
+  "clean": [
+    {
+      "eligible": 509,
+      "common": 509,
+      "arms": {
+        "klt": {
+          "lost": 0,
+          "median_translation_m": 0.150632050494829
+        },
+        "orb": {
+          "lost": 0,
+          "median_translation_m": 0.12343929238489601
+        },
+        "pretrained": {
+          "lost": 0,
+          "median_translation_m": 0.09279307445800626
+        },
+        "distilled-1": {
+          "lost": 0,
+          "median_translation_m": 0.08228782454499182
+        },
+        "distilled-2": {
+          "lost": 0,
+          "median_translation_m": 0.19766357353856406
+        }
+      }
+    },
+    {
+      "eligible": 509,
+      "common": 320,
+      "arms": {
+        "klt": {
+          "lost": 95,
+          "median_translation_m": 0.05978376241105966
+        },
+        "orb": {
+          "lost": 89,
+          "median_translation_m": 0.0733143305327151
+        },
+        "pretrained": {
+          "lost": 94,
+          "median_translation_m": 0.1788557949997609
+        },
+        "distilled-1": {
+          "lost": 0,
+          "median_translation_m": 0.11029632397387783
+        },
+        "distilled-2": {
+          "lost": 0,
+          "median_translation_m": 0.05202583799338061
+        }
+      }
+    },
+    {
+      "eligible": 509,
+      "common": 318,
+      "arms": {
+        "klt": {
+          "lost": 102,
+          "median_translation_m": 0.09648653368037297
+        },
+        "orb": {
+          "lost": 0,
+          "median_translation_m": 0.06292887016390167
+        },
+        "pretrained": {
+          "lost": 89,
+          "median_translation_m": 0.11296894721400713
+        },
+        "distilled-1": {
+          "lost": 0,
+          "median_translation_m": 0.07024254840806654
+        },
+        "distilled-2": {
+          "lost": 0,
+          "median_translation_m": 0.0651857900129035
+        }
+      }
+    },
+    {
+      "eligible": 509,
+      "common": 407,
+      "arms": {
+        "klt": {
+          "lost": 99,
+          "median_translation_m": 0.07134527771922544
+        },
+        "orb": {
+          "lost": 0,
+          "median_translation_m": 0.07085432482099623
+        },
+        "pretrained": {
+          "lost": 0,
+          "median_translation_m": 0.11191220770715597
+        },
+        "distilled-1": {
+          "lost": 0,
+          "median_translation_m": 0.13159278947350414
+        },
+        "distilled-2": {
+          "lost": 102,
+          "median_translation_m": 0.13838324100098798
+        }
+      }
+    },
+    {
+      "eligible": 509,
+      "common": 509,
+      "arms": {
+        "klt": {
+          "lost": 0,
+          "median_translation_m": 0.07079249105283757
+        },
+        "orb": {
+          "lost": 0,
+          "median_translation_m": 0.045411160800494184
+        },
+        "pretrained": {
+          "lost": 0,
+          "median_translation_m": 0.2866023445162723
+        },
+        "distilled-1": {
+          "lost": 0,
+          "median_translation_m": 0.045050183209173755
+        },
+        "distilled-2": {
+          "lost": 0,
+          "median_translation_m": 0.06504623210580593
+        }
+      }
+    }
+  ],
+  "blur": [
+    {
+      "eligible": 509,
+      "common": 509,
+      "arms": {
+        "klt": {
+          "lost": 0,
+          "median_translation_m": 0.15127903119835645
+        },
+        "orb": {
+          "lost": 0,
+          "median_translation_m": 0.13708163628670542
+        },
+        "pretrained": {
+          "lost": 0,
+          "median_translation_m": 0.2231867563302763
+        },
+        "distilled-1": {
+          "lost": 0,
+          "median_translation_m": 0.08789757103935034
+        },
+        "distilled-2": {
+          "lost": 0,
+          "median_translation_m": 0.20050700806098476
+        }
+      }
+    },
+    {
+      "eligible": 509,
+      "common": 326,
+      "arms": {
+        "klt": {
+          "lost": 0,
+          "median_translation_m": 0.046711249194675675
+        },
+        "orb": {
+          "lost": 89,
+          "median_translation_m": 0.059481811323736256
+        },
+        "pretrained": {
+          "lost": 94,
+          "median_translation_m": 0.2885427625652914
+        },
+        "distilled-1": {
+          "lost": 0,
+          "median_translation_m": 0.09689738856946523
+        },
+        "distilled-2": {
+          "lost": 0,
+          "median_translation_m": 0.027689150156437643
+        }
+      }
+    },
+    {
+      "eligible": 509,
+      "common": 420,
+      "arms": {
+        "klt": {
+          "lost": 0,
+          "median_translation_m": 0.037871237285508216
+        },
+        "orb": {
+          "lost": 0,
+          "median_translation_m": 0.06250842175793489
+        },
+        "pretrained": {
+          "lost": 89,
+          "median_translation_m": 0.07648910605597896
+        },
+        "distilled-1": {
+          "lost": 0,
+          "median_translation_m": 0.08540640863698432
+        },
+        "distilled-2": {
+          "lost": 0,
+          "median_translation_m": 0.049207905603907684
+        }
+      }
+    },
+    {
+      "eligible": 509,
+      "common": 399,
+      "arms": {
+        "klt": {
+          "lost": 0,
+          "median_translation_m": 0.05493451765479841
+        },
+        "orb": {
+          "lost": 0,
+          "median_translation_m": 0.07323258223099191
+        },
+        "pretrained": {
+          "lost": 110,
+          "median_translation_m": 0.10241123656855347
+        },
+        "distilled-1": {
+          "lost": 0,
+          "median_translation_m": 0.12481736933280187
+        },
+        "distilled-2": {
+          "lost": 0,
+          "median_translation_m": 0.12831999264042968
+        }
+      }
+    },
+    {
+      "eligible": 509,
+      "common": 509,
+      "arms": {
+        "klt": {
+          "lost": 0,
+          "median_translation_m": 0.05149554627192957
+        },
+        "orb": {
+          "lost": 0,
+          "median_translation_m": 0.04936593399065956
+        },
+        "pretrained": {
+          "lost": 0,
+          "median_translation_m": 0.16609865964949252
+        },
+        "distilled-1": {
+          "lost": 0,
+          "median_translation_m": 0.0332811208683881
+        },
+        "distilled-2": {
+          "lost": 0,
+          "median_translation_m": 0.05340285054210717
+        }
+      }
+    }
+  ]
+}

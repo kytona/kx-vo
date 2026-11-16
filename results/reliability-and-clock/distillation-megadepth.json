@@ -1,0 +1,74 @@
+{
+  "pretrained": {
+    "checkpoint": "runs/xfeat-upstream/weights/xfeat.pt",
+    "sha256": "0f5187fd7bedd26c7fe6acc9685444493a165a35ecc087b33c2db3627f3ea10b",
+    "device": "mps",
+    "pairs": 1500,
+    "max_epipolar_error_px": 2.5,
+    "auc_percent": {
+      "1": {
+        "auc@5": 43.396,
+        "auc@10": 57.171,
+        "auc@20": 68.008
+      },
+      "2": {
+        "auc@5": 42.623,
+        "auc@10": 56.462,
+        "auc@20": 67.943
+      },
+      "3": {
+        "auc@5": 43.514,
+        "auc@10": 56.918,
+        "auc@20": 67.95
+      }
+    }
+  },
+  "seed-1": {
+    "checkpoint": "runs/tartanair-distillation/seed-1/step-5000.pt",
+    "sha256": "3f2379c2a0ea422fdc74d2dd0dd420e3d9db353a2f5784a6114ea92e4ca533f4",
+    "device": "mps",
+    "pairs": 1500,
+    "max_epipolar_error_px": 2.5,
+    "auc_percent": {
+      "1": {
+        "auc@5": 42.657,
+        "auc@10": 56.265,
+        "auc@20": 66.66
+      },
+      "2": {
+        "auc@5": 42.979,
+        "auc@10": 56.058,
+        "auc@20": 66.628
+      },
+      "3": {
+        "auc@5": 42.388,
+        "auc@10": 55.904,
+        "auc@20": 66.234
+      }
+    }
+  },
+  "seed-2": {
+    "checkpoint": "runs/tartanair-distillation/seed-2/step-10000.pt",
+    "sha256": "0c96ac3b4ba3f8d445413b4f44164e6b82546b89f68e97fcdb5a2381f6a2a170",
+    "device": "mps",
+    "pairs": 1500,
+    "max_epipolar_error_px": 2.5,
+    "auc_percent": {
+      "1": {
+        "auc@5": 42.311,
+        "auc@10": 55.365,
+        "auc@20": 66.09
+      },
+      "2": {
+        "auc@5": 42.009,
+        "auc@10": 55.043,
+        "auc@20": 65.781
+      },
+      "3": {
+        "auc@5": 41.796,
+        "auc@10": 55.144,
+        "auc@20": 65.737
+      }
+    }
+  }
+}

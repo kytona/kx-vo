@@ -1,0 +1,78 @@
+{
+  "manifest_sha256": "2cfa9c6b72ee8e9a344d80f0dc420262dc64877bb0aa7b12c66eec76c0ae49ca",
+  "frames": 200,
+  "groups": [
+    "AbandonedSchool/Data_easy/P001",
+    "AbandonedSchool/Data_easy/P007"
+  ],
+  "pair_seed": 2718,
+  "size": [
+    320,
+    320
+  ],
+  "max_blur": 11,
+  "pixel_tolerance": 3,
+  "device": "mps",
+  "models": [
+    {
+      "checkpoint": "runs/xfeat-upstream/weights/xfeat.pt",
+      "sha256": "0f5187fd7bedd26c7fe6acc9685444493a165a35ecc087b33c2db3627f3ea10b",
+      "clean": {
+        "precision": 0.6875911156847612,
+        "recall": 0.4120511338086979,
+        "correct": 32072,
+        "matches": 46644,
+        "visible": 77835,
+        "coverage_8x6": 0.6851041666666666
+      },
+      "blur": {
+        "precision": 0.5821543290096364,
+        "recall": 0.3050298708807092,
+        "correct": 23742,
+        "matches": 40783,
+        "visible": 77835,
+        "coverage_8x6": 0.6182291666666667
+      }
+    },
+    {
+      "checkpoint": "runs/tartanair-distillation/seed-1/step-5000.pt",
+      "sha256": "3f2379c2a0ea422fdc74d2dd0dd420e3d9db353a2f5784a6114ea92e4ca533f4",
+      "clean": {
+        "precision": 0.7051672357757025,
+        "recall": 0.44154924135088486,
+        "correct": 34281,
+        "matches": 48614,
+        "visible": 77638,
+        "coverage_8x6": 0.6892708333333334
+      },
+      "blur": {
+        "precision": 0.6034594934152963,
+        "recall": 0.34645405600350343,
+        "correct": 26898,
+        "matches": 44573,
+        "visible": 77638,
+        "coverage_8x6": 0.6394791666666667
+      }
+    },
+    {
+      "checkpoint": "runs/tartanair-distillation/seed-2/step-10000.pt",
+      "sha256": "0c96ac3b4ba3f8d445413b4f44164e6b82546b89f68e97fcdb5a2381f6a2a170",
+      "clean": {
+        "precision": 0.7002847356909999,
+        "recall": 0.43687008456795684,
+        "correct": 33940,
+        "matches": 48466,
+        "visible": 77689,
+        "coverage_8x6": 0.6884375
+      },
+      "blur": {
+        "precision": 0.5901809719617722,
+        "recall": 0.33623807746270384,
+        "correct": 26122,
+        "matches": 44261,
+        "visible": 77689,
+        "coverage_8x6": 0.6375
+      }
+    }
+  ]
+}

@@ -111,6 +111,8 @@ The RGB recipe verifies the frozen manifest hash, distils reliability from the p
 scripts/evaluate-tartanair-xfeat.sh runs/my-tartanair mps replay
 ```
 
+The distilled checkpoints both improved held-out school recall and synthetic replay relative error over pretrained XFeat. Seed 1 also passed the MegaDepth tolerance. Stock KLT retained the lowest median error on the blurred synthetic trajectories. [Distillation results](results/reliability-and-clock/README.md)
+
 The original experimental weights are available for reproducing their results. The release note explains the trainer defects that confound the first run and links to the corrected recipe. [Checkpoint release](https://github.com/kytona/kx-vo/releases/tag/tartanair-xfeat-v1) · [Model card](results/tartanair-xfeat/MODEL-CARD.md) · [Review correction](results/tartanair-xfeat-review/README.md)
 
 ## Record and replay a real camera
