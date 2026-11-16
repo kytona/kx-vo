@@ -1,209 +1,138 @@
-# kxvo
+# kx-vo
 
-Camera-only monocular visual odometry for small indoor drones, running on a ground computer. It reads the FPV video feed and the flight controller's rangefinder and attitude, and publishes the drone's position as MAVLink `VISION_POSITION_ESTIMATE` back to the flight controller.
+Range-aided monocular visual odometry for small indoor drones, with a replay and ArduPilot benchmark. The estimator uses a forward-facing camera, downward range and flight-controller attitude to produce a local pose. It can publish that pose to ArduPilot ExternalNav over MAVLink.
 
-Built for the Kytona FlyTimes 85 HDZero test drone (GOKU F405 HD, MTF-02P flow and range sensor). The output is intended for ArduPilot ExternalNav and the KX Betaflight P3 receiver.
+- **`kxvo`** calibrates cameras, records flights, replays recordings and estimates pose using KLT, ORB or XFeat.
+- **`kxbench`** runs replay and pose-stream scenarios and writes a scorecard with thresholds, measured results and a verdict.
 
-**Status:** The synthetic benchmark and ArduCopter SITL have been exercised. Real FlyTimes capture, receiver fusion and flight remain pending. See [results](results/README.md) for the measured scope.
+Native ArduPilot SITL and the Gazebo RGB profile have passed the scenarios below. FlyTimes hardware validation is pending. [Detailed results and run evidence](results/README.md)
 
-## How it works
+## Quickstart
 
-Monocular VO cannot measure scale. kxvo takes scale from the floor:
-
-1. The downward rangefinder gives camera height. Corners that look clearly below the horizon are placed on the floor plane in metres. A corner is accepted as floor only if the floor point also lines up with where the corner was first seen, from a camera position at least 8 cm away. That two-view check keeps wall corners from being treated as floor.
-2. Corners on walls and furniture are triangulated once the drone has moved enough.
-3. Each frame's pose is solved from this small map. Floor landmarks lead whenever there are at least 25 of them, so scale stays tied to the rangefinder. Pose solving is a guided, trimmed PnP from a constant-velocity prediction, refined with camera height held to the rangefinder reading.
-4. Tracks are re-tracked against a keyframe every 8 frames to limit tracking drift.
-
-The flight controller's attitude is used only to level the start pose and to turn the slant range into vertical height. This is loose use of the FC, not tightly coupled visual-inertial odometry.
-
-kxvo publishes estimates only. The normal live estimator sends pose and telemetry requests. It stops pose publication when its estimate or required inputs are invalid or stale. Verify source switching and recovery on the chosen FC. The separate SITL runner sends flight commands to its own simulator process.
-
-## Synthetic results
-
-The room is a ray-cast textured box, 8 x 6 x 3 m. The camera is 320 x 240 with about 94° horizontal field of view and 15° uptilt, flown on a smooth loop at about 1 m height and 0.4 m/s. Simulated sensors: rangefinder noise 1 cm, attitude noise 0.3°, yaw drift 0.2°/s.
-
-| Run | Path | Horizontal RMSE | End error | Yaw RMSE |
-|---|---|---|---|---|
-| One loop, 24 s, mean of 5 seeds | 8.6 m | 0.13 m (1.5% of path) | 0.34 m | 1.1° |
-| Two loops, 48 s, mean of 3 seeds | 17.2 m | 0.60 m | 1.57 m (9.2% of path) | 3.5° |
-
-Read these as a best case. The renderer has no motion blur, rolling shutter, lighting change, video compression, OSD overlay or real latency. Drift grows with distance because there is no loop closure, and yaw drift is the main error over two loops. The replay shows how quickly yaw error accumulates over repeated loops.
-
-Processing runs at about 275 frames per second at 320 x 240 on an Apple M5. That leaves plenty of headroom for a 60 fps HDZero feed.
+Generate and score a synthetic flight on CPU. The demo needs Python 3.10 or later, with Python 3.11 used for the published runs.
 
 ```sh
-uv venv .venv && uv pip install --python .venv/bin/python -e ".[test]"
-.venv/bin/python -m pytest -q
-.venv/bin/kxvo synth --seeds 5         # the benchmark above
+git clone https://github.com/kytona/kx-vo.git
+cd kx-vo
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e .
+kxbench quickstart runs/demo
 ```
 
-## Replay benchmark quickstart
-
-After installing the package, run `kxbench quickstart runs/demo`. It generates a synthetic clip, a versioned JSON scenario and a scorecard. To run the same case again, use `kxbench run runs/demo/scenario.json --output runs/demo-repeat`. The scorecard records the inputs, coverage, position error and verdict. A run passes when it meets the manifest limits, fails when valid inputs produce insufficient pose coverage or excess error, and is invalid when the inputs or runner prevent evaluation.
-
-### Pose-stream scenarios and simulator checks
-
-The two pose-stream manifests exercise ArduPilot with known poses and retain DataFlash evidence. The stale stream is a deliberate failure with exit code 1.
+The demo writes the generated recording to `runs/demo/capture/`, the scenario to `runs/demo/scenario.json`, and the scorecard to `runs/demo/result/score.json`. The scorecard reports pose coverage, horizontal and yaw error, and median relative translation error over continuous 5 s windows.
 
 ```sh
+kxbench run runs/demo/scenario.json --output runs/demo-repeat --tracker orb
+```
+
+Use a fresh output directory for each run. Exit status `0` means the run met its thresholds, `1` means it failed a threshold, and `2` means it could not be evaluated.
+
+## Measured results
+
+| Profile | Observed result |
+| --- | --- |
+| Native ArduPilot fallback | Stock KLT and pretrained XFeat each passed 3/3 runs. DataFlash confirmed the switch from ExternalNav to optical flow. |
+| Native motion-blur box | Stock KLT reached all four waypoints of the 0.7 m box and landed. Simulated angular motion produced at least 3 px of blur on 334 frames. |
+| Pose-stream injection | DataFlash confirmed rejection of a 5 m outlier. The deliberate stale stream failed acceptance. |
+| ArduPilot JSON clock | The stationary fixture produced identical 2,000-tick traces across three normal runs and three with two busy CPU workers. |
+| Gazebo Harmonic RGB | The 15° downward camera profile passed clean ExternalNav and blackout-to-GPS recovery. Clean hold estimator RMS was 0.093 m horizontally. |
+| XFeat fine-tuning | Depth-and-pose supervision beat the warp-trained controls on the same real-viewpoint validation pairs. Neither seed reached the blur-recall gain required for held-out testing. |
+
+The passing Gazebo profile uses emulated floor range and host receive times to associate camera frames with simulator truth. The report includes earlier camera configurations that exceeded the error limit. [Simulator and geometric training results](results/benchmark-followthrough/README.md)
+
+On three blurred synthetic replays at 640 px, the median 5 s relative translation error was 0.059 m for KLT, 0.052 m for ORB and 0.223 m for pretrained XFeat. XFeat’s median per-run p95 processing time on the Mac GPU was 17.9 ms in offline replay. [Replay metrics and ranges](results/tartanair-xfeat-review/README.md)
+
+## Run the simulator benchmarks
+
+Install the SITL extras and build the pinned ArduCopter 4.7.1 binary. The build requires the native ArduPilot toolchain. [ArduPilot SITL setup](https://ardupilot.org/dev/docs/sitl-simulator-software-in-the-loop.html)
+
+```sh
+python -m pip install -e '.[sitl]'
+KXVO_PYTHON=.venv/bin/python scripts/build-sitl.sh
+
 kxbench run experiments/pose-stream-outlier.json --output runs/pose-outlier
 kxbench run experiments/pose-stream-stale.json --output runs/pose-stale
-python -m kxvo.lockstep --arducopter runs/ardupilot/build/sitl/bin/arducopter \
-  --output runs/json-clock-check
 ```
 
-For Gazebo Harmonic, install the platform dependencies in the [ArduPilot Gazebo instructions](https://ardupilot.org/dev/docs/sitl-with-gazebo.html), then use the pinned build and runner:
+The stale scenario is expected to exit with status 1. The scorecard and flight directory retain the observations and DataFlash evidence. Run the box and stationary clock probe with the same binary:
+
+```sh
+python -m kxvo.sitl --arducopter runs/ardupilot/build/sitl/bin/arducopter \
+  --output runs/box --box-m 0.7 --exposure-ms 55 --timeout 125
+
+python -m kxvo.lockstep --arducopter runs/ardupilot/build/sitl/bin/arducopter \
+  --output runs/json-clock
+```
+
+To run the native optical-flow fallback profile, use the same injected link settings across seeds. The documented results use seeds 1 through 3.
+
+```sh
+python -m kxvo.sitl --arducopter runs/ardupilot/build/sitl/bin/arducopter \
+  --output runs/fallback-1 --seed 1 --delay-ms 80 --jitter-ms 15 --drop 0.1 \
+  --exposure-ms 12 --blur-min-px 7 --blackout-seconds 1 --downlink-bps 1250 \
+  --fallback-source flow
+```
+
+For the pretrained arm, install the `xfeat` extra, run `scripts/setup-xfeat.sh`, and add `--tracker xfeat --checkpoint runs/xfeat-upstream/weights/xfeat.pt`. Run the cases serially so they use the same host resources.
+
+For Gazebo Harmonic, install the platform dependencies and build the pinned ArduPilot plugin. The default launcher uses Gazebo physics with kx-vo’s synthetic renderer. To use the mounted Gazebo RGB camera, set `KXVO_GAZEBO_CAMERA_PYTHON` to an interpreter with the matching `gz.transport13`, `gz.msgs10` and Protobuf packages. [Gazebo setup](https://ardupilot.org/dev/docs/sitl-with-gazebo.html)
 
 ```sh
 scripts/build-gazebo-plugin.sh
-scripts/run-gazebo-sitl.sh runs/gazebo-physics --timeout 140
+scripts/run-gazebo-sitl.sh runs/gazebo-clean --timeout 140
 scripts/run-gazebo-sitl.sh runs/gazebo-recovery --timeout 140 \
   --blackout-seconds 1 --delay-ms 50 --fallback-source gps
 ```
 
-These runs use Gazebo physics, kx-vo's synthetic renderer and a simulated floor range. Set `KXVO_GAZEBO_CAMERA_PYTHON` to a Python environment with compatible Gazebo Harmonic `gz.transport13` and `gz.msgs10` bindings and their Protobuf runtime to run the mounted-camera diagnostic. The diagnostic records Gazebo timestamps and the host receive-time difference between camera and truth messages. It records an explicit failure if the simulated vehicle leaves its flight envelope. Use `--box-m 0.7 --exposure-ms 55 --timeout 125` with native `kxvo.sitl` for the motion-blur box. [Measured results](results/benchmark-followthrough/README.md)
-
-## Hardware path
-
-```
-FlyTimes camera -> HDZero VTX -> BoxPro goggles -> mini HDMI out -> USB capture dongle -> Mac (kxvo)
-Mac (kxvo) -> data link -> GOKU F405 UART -> ArduPilot VISO / KX Betaflight P3
-GOKU F405 -> data link -> Mac: ATTITUDE, DISTANCE_SENSOR (MTF-02P)
-```
-
-**Data link without a Wi-Fi board.** At 10 Hz, compact unsigned MAVLink 2 poses can take about 440 B/s. A nonzero reset counter can keep the covariance extension on the wire, raising this to about 1,290 B/s before other traffic. Measure both cases.
-
-- **ArduPilot:** ELRS MAVLink mode (ELRS 3.5+) on the existing receiver. ExpressLRS recommends it over Airport for MAVLink. Community reports put its throughput at about 1.25 kB/s. It needs an ESP-based transmitter module the Mac can reach over USB or the TX backpack. Check whether the RadioMaster Pocket's internal module qualifies before relying on it.
-- **Both firmwares:** ELRS Airport, a transparent serial link. A second small ESP-based ELRS receiver goes on a spare GOKU UART and an ELRS TX module plugs into the Mac by USB. One community report puts throughput at about 0.5 kB/s, so keep 10 Hz compact or lower the rate.
-- **Bench only:** USB to the flight controller.
-
-Measure the real throughput on the bench before flying.
-
-## Using it
-
-1. **Turn off the goggle OSD on the HDMI feed**, or mask it. Static overlay text looks like features that never move. Add rectangles to `mask` in the camera JSON.
-2. **Calibrate through the real video path**, at the processing width:
-   ```sh
-   kxvo calibrate --video 0 --board 9x6 --square 0.024 --fisheye --uptilt 20 --out flytimes_cam.json
-   ```
-3. **Measure the video latency** by filming a millisecond clock on the Mac screen and comparing it with the clock shown in the live feed. Pass it as `--video-latency-ms`, and put the total lag into `VISO_DELAY_MS`.
-4. **Shadow mode first**: run with no `--send` and record. Compare the VO track against the overhead ground-truth camera (AI-NAV-PLAN section 5):
-   ```sh
-   kxvo run --camera flytimes_cam.json --video 0 --mavlink udpin:0.0.0.0:14550 --record runs/shadow1 --show
-   kxvo replay --camera flytimes_cam.json runs/shadow1
-   ```
-5. **Only after shadow logs agree with ground truth:** load `params/ardupilot_kxvo.parm` (VO as EKF source set 2 on an RC switch, flow stays set 1) or `params/betaflight_kx_extnav.txt`, and add `--send`.
-
-## Reproduce the XFeat experiment
-
-From a fresh clone, create a Python 3.11 virtual environment and install `kxvo[test,xfeat,plots,benchmark,sitl]` in editable mode. The default live estimator only needs the base install. The tested simulator build was native macOS with Xcode Command Line Tools. Activate the environment with `source .venv/bin/activate` before using the bare `kxvo` or `python` commands below.
+## Reproduce XFeat training
 
 ```sh
-uv venv --python 3.11
-uv pip install -e '.[test,xfeat,plots,benchmark,sitl]'
-.venv/bin/python -m pytest -q
-scripts/setup-xfeat.sh
-KXVO_PYTHON=.venv/bin/python scripts/build-sitl.sh
-```
-
-Run the public TartanAir V2 experiment from the repository root:
-
-```sh
+python -m pip install -e '.[xfeat,benchmark]'
 scripts/run-tartanair-xfeat.sh runs/my-tartanair mps
+scripts/run-geometric-xfeat.sh runs/my-geometric mps
 ```
 
-Use `cpu` or `cuda` in place of `mps` where applicable. Add `3` as the third argument for a smoke run. The [pinned route plan](experiments/tartanair-xfeat.json) selects 1,000 training frames, 200 validation frames and 200 test frames. The downloader fetches ZIP ranges for the selected PNGs from the official mirror. Allow roughly 1 GB of transfer and storage for the subset. Route membership, camera, source revision, rights and image hashes are recorded in the dataset manifest. TartanAir publishes the dataset under [CC BY 4.0](https://tartanair.org/).
+Use `cpu` or `cuda` for the corresponding device. Both scripts start two training seeds from pinned pretrained XFeat weights. The geometric experiment also runs two warp-trained controls. Its labels use neighboring TartanAir RGB frames, depth and camera poses with bidirectional visibility checks. The downloader fetches selected members of the pinned archives and resumes an interrupted download with the same command. [RGB route plan](experiments/tartanair-xfeat.json) · [Geometric route plan](experiments/tartanair-geometry.json) · [TartanAir V2](https://tartanair.org/)
 
-The script starts two independent seeds from the official checkpoint and runs 1,500 steps per seed by default. Validation uses identical clean and blurred warps on the same 200 images. A selected checkpoint must improve blurred recall by at least one percentage point, stay within two points of clean recall and preserve blurred spatial coverage. It writes per-seed weights, provenance and validation curves. For runs using a separate development recording, pass `--validation-scenario` to `python -m kxvo.train` to score its trajectory at step zero and each saved checkpoint.
-
-Run the evaluation explicitly once the recipe and checkpoints are frozen:
+Training writes validation metrics, checkpoint hashes and provenance. Run final evaluation explicitly after freezing the checkpoints. The stage can be `matches`, `replay`, `sitl` or `all`. The matches stage requires MegaDepth-1500 and the SITL stage requires a local ArduCopter build. [MegaDepth setup](https://github.com/verlab/accelerated_features#evaluation)
 
 ```sh
-scripts/evaluate-tartanair-xfeat.sh runs/my-tartanair mps
+scripts/evaluate-tartanair-xfeat.sh runs/my-tartanair mps replay
 ```
 
-The evaluator runs the held-out matches, three seeded MegaDepth solver passes, three paired synthetic replay fixtures, and native ArduPilot fallback scenarios. Set the third argument to `matches`, `replay`, or `sitl` for a single stage. The full evaluation needs the MegaDepth dataset and an ArduCopter SITL build. Experimental checkpoints that missed validation can be included by setting `KXVO_DIAGNOSTIC_FINAL=1`. Keep those outputs labelled as diagnostics.
+The original experimental weights are available for reproducing their results. The release note explains the trainer defects that confound the first run and links to the corrected recipe. [Checkpoint release](https://github.com/kytona/kx-vo/releases/tag/tartanair-xfeat-v1) · [Model card](results/tartanair-xfeat/MODEL-CARD.md) · [Review correction](results/tartanair-xfeat-review/README.md)
 
-Use `python -m kxvo.tartanair --plan experiments/tartanair-xfeat.json --output runs/datasets/tartanair-geometry --neighbor-offset 2` to obtain nearby RGB frames, both depth maps, camera intrinsics and trajectory poses. The resulting `pairs.csv` can feed a geometry-based experiment. Interrupted downloads can resume with the same command. The downloader checks cached members against the pinned archive's CRC before reusing them.
+## Record and replay a real camera
 
-To reproduce the depth-and-pose comparison on the same validation pairs, run `scripts/run-geometric-xfeat.sh runs/my-geometric mps`. The script fits two seeds with geometric supervision and two with warp supervision, then writes per-seed validation results. [Geometric comparison](results/benchmark-followthrough/README.md)
-
-Start with a synthetic smoke test. It checks the code path from the official checkpoint through training and validation to a reloadable model.
+The intended FlyTimes setup captures the HDZero goggles’ HDMI output on a ground computer and receives MAVLink `ATTITUDE` and `DISTANCE_SENSOR` from the flight controller. Calibrate through the same capture chain and measure video delay before comparing against a reference trajectory. Disable the goggles’ on-screen display or mask it in the calibration file.
 
 ```sh
-.venv/bin/python scripts/make-smoke-data.py runs/my-smoke
-OMP_NUM_THREADS=2 .venv/bin/python -m kxvo.train \
-  --manifest runs/my-smoke/manifest.csv --output runs/my-training \
-  --checkpoint runs/xfeat-upstream/weights/xfeat.pt \
-  --steps 3 --validate-every 1 --width 160 --height 128 --batch 2
+kxvo calibrate --video 0 --board 9x6 --square 0.024 --fisheye --uptilt 20 \
+  --no-show --out flytimes_cam.json
+kxvo run --camera flytimes_cam.json --video 0 --mavlink udpin:0.0.0.0:14550 \
+  --record runs/shadow1
+kxvo replay --camera flytimes_cam.json runs/shadow1 \
+  --output runs/shadow1/klt.jsonl
+python -m kxvo.score --output runs/shadow1/health.json runs/shadow1/klt.jsonl
 ```
 
-For the actual experiment, supply a CSV with `path,split,group,rights` and add camera/calibration and capture provenance columns. Paths are relative to the manifest. Assign whole flight sessions to train, validation and test. Pick dimensions divisible by 32 that preserve the capture aspect ratio. Start with two seeds, use `--device cuda` on a rented CUDA machine if needed, and save the validation logs and selected checkpoint for each seed. A seed can legitimately have no selected checkpoint if it fails the clean-recall or blur-improvement check.
+This workflow records in shadow mode. Set `--video-latency-ms` to the measured capture delay. Pose publication requires `--send`. The repository includes starting [ArduPilot parameters](params/ardupilot_kxvo.parm) and an experimental [Betaflight P3 profile](params/betaflight_kx_extnav.txt). A timestamped position and yaw reference is needed for metric error. Use `python -m kxvo.ground_truth --help` to export an ArUco-based reference, then supply it to `kxvo.score` with `--reference`. Replay the same recording, camera and mount settings for each tracker.
 
-The default training recipe updates the descriptor backbone and reliability head with known warp correspondences. Add `--train-detector` to train the keypoint head using clean detections from the pinned XFeat teacher projected into the warped view. Training includes clean pairs and blur on one or both images. Record whether detector training was enabled.
+## Estimator assumptions
 
-### Replay and score
+The downward range anchors scale to a shared flat floor. Floor landmarks are checked across views, and other landmarks are triangulated as the camera moves. The estimator solves body pose from those tracked landmarks. It uses flight-controller attitude for initial leveling and range compensation. ORB and XFeat can seed tracks and re-associate lost landmarks by descriptor.
 
-New live recordings store lossless full-resolution color arrays by default. Use `--record-format png` for a short capture that needs portable image files. Raw 720p color capture at 60 fps uses about 10 GB per minute. Replay converts and resizes them to the requested calibrated processing width. Old recordings can still replay, with the image detail available in the saved frames. Use the same camera, mount offsets and recording for all trackers. An XFeat run requires a local `--checkpoint`. ORB and XFeat default to hybrid tracking. Their detections seed tracks, KLT tracks them at subpixel resolution, and descriptors re-associate lost landmarks. Use `--association descriptor` to measure direct descriptor matching with geometric filtering. Use `--landmark-gap 0` and an explicit `--output` for the no-recovery ablation. Recordings and replays refuse to overwrite existing outputs.
+A glossy or poorly textured floor, steps, and obstacles under the rangefinder can compromise scale. Pose drift accumulates over distance without loop closure. The simulator measurements apply to the recorded profiles. Real HDZero latency, telemetry transport and receiver fusion still need measurement on the aircraft.
 
-```sh
-kxvo replay --camera runs/my-smoke/camera.json --range-offset 0 0 0 runs/my-smoke/blur
-kxvo replay --camera runs/my-smoke/camera.json --range-offset 0 0 0 \
-  --tracker orb runs/my-smoke/blur
-kxvo replay --camera runs/my-smoke/camera.json --range-offset 0 0 0 \
-  --tracker xfeat --checkpoint runs/xfeat-upstream/weights/xfeat.pt runs/my-smoke/blur
-kxvo replay --camera runs/my-smoke/camera.json --range-offset 0 0 0 \
-  --tracker xfeat --checkpoint runs/my-training/seed-1/step-3.pt runs/my-smoke/blur
-python -m kxvo.score --reference runs/my-smoke/blur/log.jsonl \
-  --output results/my-replay.json --plot results/my-replay.png runs/my-smoke/blur/replay-*.jsonl
-```
-
-For repeated real replay, `scripts/replay-experiment.sh CAMERA_JSON RUN_DIR OUTPUT_DIR CHECKPOINT [CHECKPOINT ...]` runs each tracker once with a declared seed using the default FlyTimes mount offsets. Set `KXVO_WIDTH` if your capture profile differs.
-
-For a FlyTimes pass without independent ground truth, record once in shadow mode, then replay the same clip through each tracker. Run `python -m kxvo.score --output health.json replay-*.jsonl` without a reference to compare valid coverage, time without pose, resets and processing latency. Add a timestamped reference when the setup supports metre or yaw error.
-
-For real flights, `python -m kxvo.ground_truth --help` describes how to produce a reference CSV from a surveyed overhead camera and a top-mounted ArUco marker. Supply one synchronized timestamp per video frame. Use one clean alignment window shared by all arms. Report the reference error and any periods without marker coverage. Start with a clean development clip to verify geometry, scale, timing and attitude/range before judging the learned tracker.
-
-Run the same sparse MegaDepth-1500 protocol with each checkpoint and seed. Download the dataset using the [pinned upstream instructions](https://github.com/verlab/accelerated_features#evaluation). The dataset flag points at the directory containing `megadepth_test_1500`.
-
-```sh
-python -m kxvo.megadepth --dataset runs/datasets/Mega1500 \
-  --checkpoint runs/xfeat-upstream/weights/xfeat.pt --seed 1 2 3
-```
-
-### ArduPilot SITL
-
-The runner starts a local Copter 4.7.1 child, renders a textured room at the live simulated aircraft pose and reads attitude and range from that autopilot over MAVLink. It establishes the origin and takes off with simulated GPS available, then switches position and yaw to ExternalNav. This checks GPS-to-ExternalNav transition. It exercises force-arm only inside the runner's private SITL process. Use a different `--instance` for simultaneous runs.
-
-```sh
-python -m kxvo.sitl --arducopter runs/ardupilot/build/sitl/bin/arducopter \
-  --output runs/my-truth --fixture
-python -m kxvo.sitl --arducopter runs/ardupilot/build/sitl/bin/arducopter \
-  --output runs/my-stock
-OMP_NUM_THREADS=2 python -m kxvo.sitl --arducopter runs/ardupilot/build/sitl/bin/arducopter \
-  --output runs/my-xfeat --tracker xfeat --checkpoint runs/xfeat-upstream/weights/xfeat.pt
-```
-
-Use the fine-tuned file in the same command to test that model. To exercise assumed link degradation, add `--delay-ms 80 --jitter-ms 15 --drop 0.1 --exposure-ms 12 --blur-min-px 7 --blackout-seconds 1 --downlink-bps 1250 --fallback-source flow`. This uses an explicit synthetic blur floor and simulates a pilot switch from ExternalNav to optical flow. GPS supplies takeoff and the initial position in this scenario. The effective parameter file records the delay compensation. The summary checks the pose stream, actual hold drift, estimator error and valid coverage, in addition to EKF evidence and landing. Replace the injected assumptions with FlyTimes measurements before using the simulation to predict hardware behaviour.
-
-## Limits
-
-- The floor must be flat, textured and well lit (the MTF-02P also needs at least 60 lux). Plain glossy floors and dark halls will fail.
-- The rangefinder must see the same floor the camera sees. Flying over tables or steps corrupts scale.
-- There is no loop closure and no relocalisation. A `lost` status restarts the map and increments `reset_counter`.
-- On Betaflight, P3 has no latency compensation.
-- Indoor flight only, in a fully enclosed hall with venue permission, with a pilot ready to take over and the source switch within reach. Outdoor automatic modes need the PDRA01.
-
-## Layout
+## Repository map
 
 | Path | Contents |
-|---|---|
-| `kxvo/vo.py` | VO core: tracking, landmarks, pose |
-| `kxvo/pipeline.py` | Camera to body NED, height from slant range |
-| `kxvo/synth.py`, `kxvo/bench.py` | Synthetic room and benchmark |
-| `kxvo/mav.py` | MAVLink telemetry in, pose out |
-| `kxvo/video.py`, `kxvo/calib.py` | Capture, recording, replay, calibration |
-| `params/` | ArduPilot and KX Betaflight starting parameters |
+| --- | --- |
+| [kxvo/](kxvo/) | Estimator, calibration, replay, scoring, SITL and training |
+| [experiments/](experiments/) | Dataset splits and pose-stream manifests |
+| [sim/](sim/) | Gazebo worlds |
+| [scripts/](scripts/) | Build, training and evaluation entry points |
+| [results/](results/) | Scorecards, plots, provenance and model card |
 
-Licence: Apache-2.0.
+[Apache-2.0 licence](LICENSE)
