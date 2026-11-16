@@ -9,9 +9,12 @@ import math
 from pathlib import Path
 import signal
 import socket
+import struct
 import subprocess
 import time
+from types import SimpleNamespace
 
+import cv2
 import numpy as np
 
 from .geometry import camera_to_body, euler_to_rot
@@ -51,6 +54,7 @@ def ekf_evidence(log, outlier_usec=None, outlier_m=0):
     counts = {"secondary_samples": 0, "vision_received": 0, "vision_accepted": 0,
               "secondary_horizontal_innovation_samples": 0, "land_mode": False}
     source = {}
+    secondary_seen = set()
     outlier_time = None
     outlier_innovations = {}
     outlier_ratio = None
@@ -59,7 +63,12 @@ def ekf_evidence(log, outlier_usec=None, outlier_m=0):
             kind = msg.get_type()
             if kind == "XKFS":
                 source[msg.C] = msg.SS
-                counts["secondary_samples"] += int(msg.SS == 1)
+                if msg.SS == 1:
+                    secondary_seen.add(msg.C)
+                    counts["secondary_samples"] += 1
+                elif msg.C in secondary_seen:
+                    key = f"fallback_source_{msg.SS + 1}_samples"
+                    counts[key] = counts.get(key, 0) + 1
             elif kind == "VISP":
                 counts["vision_received"] += 1
                 counts["vision_accepted"] += int(msg.Ign == 0)
@@ -91,12 +100,18 @@ def ekf_evidence(log, outlier_usec=None, outlier_m=0):
 def run(args, mav, recorder):
     rng = np.random.default_rng(args.seed)
     camera = default_camera()
+    if args.gazebo_camera_frame:
+        camera.uptilt_deg = -15.0
     camera.save(args.output / "camera.json")
-    mount = Mount(rangefinder_B=(0, 0, 0))
+    mount = Mount(camera_B=(0.08, 0, -0.05) if args.gazebo_camera_frame else (0.03, 0, 0),
+                  rangefinder_B=(0, 0, 0))
+    last_camera_stamp = -1
+    camera_guard = None
     tracker = None if args.tracker == "klt" else DescriptorTracker(
         args.tracker, 300, args.checkpoint, args.xfeat_source)
     pipe = Pipeline(camera, mount, tracker=tracker)
-    room = Room(seed=args.seed)
+    room = Room(seed=args.seed) if not args.fixture else None
+    blank_image = np.zeros((camera.height, camera.width), dtype=np.uint8)
     queue = deque(maxlen=5)
     epoch = time.monotonic()
     next_send, last_capture, last_processed, last_pose_send = 0, -1, -1, -1
@@ -113,6 +128,12 @@ def run(args, mav, recorder):
     statuses = []
     hold = []
     hold_truth = []
+    box_started = None
+    box_origin = None
+    box_leg = 0
+    box_next_command = 0.0
+    box_waypoints = []
+    box_blur_lengths = []
     hold_poses = 0
     last_hold_pose = None
     hold_pose_gaps = []
@@ -191,6 +212,14 @@ def run(args, mav, recorder):
                 if start_pos is None and "LOCAL_POSITION_NED" in states:
                     base = states["LOCAL_POSITION_NED"][1]
                     start_pos = np.array([base.x, base.y, base.z]) - p_local
+                if (args.gazebo_camera_frame and landing_at is None and
+                        (abs(p_local[2]) > 2.2 or np.linalg.norm(p_local[:2]) > 2)):
+                    camera_guard = {"t": now, "event": "camera diagnostic exceeded flight envelope",
+                                    "truth_p": p_local.tolist()}
+                    trace.write(json.dumps(camera_guard) + "\n")
+                    mav.mav.set_mode_send(1, mavutil.mavlink.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED, 9)
+                    phase = "land-commanded"
+                    landing_at = now
                 if phase == "translate" and now - next_send > 0.15:
                     speed = 0.27 if switched_at is None else 0.0
                     mav.mav.set_position_target_local_ned_send(
@@ -199,54 +228,88 @@ def run(args, mav, recorder):
                     next_send = now
                 if sample_t > last_capture:
                     last_capture = sample_t
-                    if switched_at is not None and landing_at is None and sample_t >= switched_at + 1:
+                    if switched_at is not None and box_started is None and landing_at is None and sample_t >= switched_at + 1:
                         hold_truth.append(p_local[:2])
                     attitude = (state.roll, state.pitch, state.yaw)
                     body = euler_to_rot(*attitude)
                     room_pos = p_local + np.array([3, 3, 0])
-                    image = render(room, camera, body @ camera_to_body(camera.uptilt_deg),
-                                   room_pos + body @ np.asarray(mount.camera_B), rng=rng)
-                    if args.exposure_ms:
+                    camera_stamp = None
+                    capture_time = sample_t
+                    if args.gazebo_camera_frame:
+                        image = None
+                        try:
+                            payload = args.gazebo_camera_frame.read_bytes()
+                        except FileNotFoundError:
+                            payload = b""
+                        if len(payload) == 16 + 320 * 240 * 3:
+                            stamp, arrival_ns = struct.unpack_from("<QQ", payload)
+                            if stamp > last_camera_stamp:
+                                last_camera_stamp = camera_stamp = stamp
+                                capture_time = arrival_ns / 1e9 - epoch
+                                rgb = np.frombuffer(payload, dtype=np.uint8, offset=16).reshape(240, 320, 3)
+                                image = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
+                    else:
+                        image = blank_image if args.fixture else render(
+                            room, camera, body @ camera_to_body(camera.uptilt_deg),
+                            room_pos + body @ np.asarray(mount.camera_B), rng=rng)
+                    if args.exposure_ms and not args.fixture and image is not None:
                         dx, dy = state.zgyro, state.ygyro
                         length = min(31, max(args.blur_min_px, round(
                             camera.fx * math.hypot(dx, dy) * args.exposure_ms / 1000)))
                         blur_lengths.append(length)
+                        if box_started is not None and landing_at is None:
+                            box_blur_lengths.append(length)
                         image = motion_blur(image, length, math.atan2(dy, dx))
                     blackout = (args.blackout_seconds > 0 and switched_at is not None
                                 and 2 <= now - switched_at < 2 + args.blackout_seconds)
-                    if blackout or len(queue) == queue.maxlen or rng.random() < args.drop:
+                    if image is None:
+                        pass
+                    elif blackout or len(queue) == queue.maxlen or rng.random() < args.drop:
                         dropped += 1
                     else:
                         delay = max(0, args.delay_ms + rng.normal(0, args.jitter_ms)) / 1000
-                        queue.append((sample_t + delay, sample_t, image, p_local, attitude))
+                        queue.append((capture_time + delay, capture_time, image, p_local, attitude, camera_stamp, sample_t))
                         queue = deque(sorted(queue, key=lambda item: item[0]), maxlen=queue.maxlen)
                         peak_queue = max(peak_queue, len(queue))
                 if queue and queue[0][0] <= now:
-                    _, capture, image, truth, truth_att = queue.popleft()
+                    _, capture, image, truth, truth_att, camera_stamp, truth_sample = queue.popleft()
                     # ArduPilot's real telemetry and frames share the receive clock here.
                     att_entry = states.get("budgeted_ATTITUDE")
                     range_entry = states.get("budgeted_DISTANCE_SENSOR")
-                    if (capture <= last_processed or now - capture > 0.2 or att_entry is None or range_entry is None
-                            or now - min(att_entry[0], range_entry[0]) > 0.2):
+                    stale_attitude = att_entry is None or now - att_entry[0] > 0.2
+                    stale_range = range_entry is None or now - range_entry[0] > 0.2
+                    missing_sensor = not args.fixture and (stale_attitude or
+                                     (stale_range and not args.simulated_plane_range))
+                    if capture <= last_processed or now - capture > 0.2 or missing_sensor:
                         dropped += 1
                         continue
                     last_processed = capture
-                    attitude = tuple(getattr(att_entry[1], axis) for axis in ("roll", "pitch", "yaw"))
-                    distance = range_entry[1].current_distance / 100
+                    attitude = truth_att if args.fixture else tuple(
+                        getattr(att_entry[1], axis) for axis in ("roll", "pitch", "yaw"))
+                    if args.fixture or args.simulated_plane_range:
+                        distance = -truth[2] / max(0.1, math.cos(truth_att[0]) * math.cos(truth_att[1]))
+                    else:
+                        distance = range_entry[1].current_distance / 100
                     started = time.monotonic()
-                    out = pipe.step(image, capture, distance, attitude)
+                    if first_truth is None:
+                        first_truth = truth.copy()
+                    if args.fixture:
+                        out = SimpleNamespace(p_WB=truth - first_truth, rpy=truth_att, valid=True,
+                                              status="truth fixture", reset_counter=0, pos_sigma_m=0.05)
+                    else:
+                        out = pipe.step(image, capture, distance, attitude)
                     process_ms = (time.monotonic() - started) * 1000
                     frames += 1
                     valid += int(out.valid)
                     pose = None
-                    if first_truth is None:
-                        first_truth = truth.copy()
                     if start_pos is not None and (args.fixture or out.valid):
                         pose = start_pos + (truth if args.fixture else out.p_WB + first_truth)
-                    if switched_at is not None and landing_at is None:
+                    if switched_at is not None and box_started is None and landing_at is None:
                         hold.append((capture, truth[:2], (out.p_WB + first_truth - truth)[:2] if out.valid else None,
                                      states.get("LOCAL_POSITION_NED", (None, None))[1]))
-                    if pose is not None and now >= last_pose_send:
+                    stopped = (args.stop_poses_after is not None and switched_at is not None and
+                               now - switched_at >= args.stop_poses_after)
+                    if pose is not None and now >= last_pose_send and not stopped and camera_guard is None:
                         if args.outlier_m and switched_at is not None and now - switched_at > 1 and not injected_outlier:
                             pose = pose + np.array([args.outlier_m, 0, 0])
                             injected_outlier = True
@@ -273,6 +336,9 @@ def run(args, mav, recorder):
                               "p": out.p_WB.tolist(), "rpy": out.rpy, "truth_p": truth.tolist(),
                               "truth_rpy": truth_att, "reset": out.reset_counter, "processing_ms": process_ms,
                               "pose_count": sent, "pose_bytes": pose_bytes, "frame_age_ms": (now - capture) * 1000}
+                    if camera_stamp is not None:
+                        record.update(camera_sim_ns=camera_stamp,
+                                      camera_to_truth_receive_delta_ms=(truth_sample - capture) * 1000)
                     recorder.write(capture, image, record)
                     trace.write(json.dumps({"t": capture, **record}) + "\n")
                 if (switched_at is not None and args.blackout_seconds > 0 and not fallback_sent
@@ -280,7 +346,33 @@ def run(args, mav, recorder):
                     command(mav, mavutil.mavlink.MAV_CMD_SET_EKF_SOURCE_SET, 3 if args.fallback_source == "flow" else 1)
                     fallback_sent = True
                     trace.write(json.dumps({"t": now, "event": "simulated pilot source switch"}) + "\n")
-                if switched_at is not None and landing_at is None and now - switched_at >= args.hold_seconds:
+                ready = switched_at is not None and now - switched_at >= args.hold_seconds
+                if ready and args.box_m and landing_at is None:
+                    if box_started is None:
+                        box_started = now
+                        box_origin = p_local.copy()
+                        box_heading = state.yaw
+                        box_offsets = np.array([[1, 0], [1, 1], [0, 1], [0, 0]]) * args.box_m
+                        trace.write(json.dumps({"t": now, "event": "box started"}) + "\n")
+                    target = box_origin.copy()
+                    target[:2] += box_offsets[min(box_leg, 3)]
+                    error = float(np.linalg.norm(p_local[:2] - target[:2]))
+                    heading = box_heading + math.radians((25, -25, 25, 0)[min(box_leg, 3)])
+                    yaw_error = abs((state.yaw - heading + math.pi) % (2 * math.pi) - math.pi)
+                    if box_leg < 4 and error <= min(0.22, args.box_m / 3) and yaw_error <= math.radians(12):
+                        event = {"t": now, "event": "box waypoint", "leg": box_leg + 1,
+                                 "truth_target_error_m": error, "truth_yaw_error_deg": math.degrees(yaw_error)}
+                        trace.write(json.dumps(event) + "\n")
+                        box_waypoints.append(event)
+                        box_leg += 1
+                    elif now >= box_next_command:
+                        setpoint = start_pos + target
+                        mav.mav.set_position_target_local_ned_send(
+                            int(now * 1000), 1, 1, mavutil.mavlink.MAV_FRAME_LOCAL_NED,
+                            0x09F8, *setpoint, 0, 0, 0, 0, 0, 0, heading, 0)
+                        box_next_command = now + 0.2
+                    ready = box_leg == 4 or now - box_started >= args.box_timeout
+                if ready and landing_at is None:
                     mav.mav.set_mode_send(1, mavutil.mavlink.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED, 9)
                     phase = "land-commanded"
                     landing_at = now
@@ -297,6 +389,9 @@ def run(args, mav, recorder):
         metrics["truth_samples"] = len(hold_truth)
     return {"mode": "truth fixture" if args.fixture else "live kx-vo", "tracker": args.tracker,
             "checkpoint_sha256": tracker.checkpoint_hash if tracker else None, "phase": phase,
+            "camera_guard": camera_guard,
+            "camera_source": "Gazebo RGB" if args.gazebo_camera_frame else "truth fixture" if args.fixture else "synthetic room",
+            "range_source": "simulator truth and floor plane" if args.simulated_plane_range else "MAVLink range",
             "frames": frames, "valid_frames": valid, "dropped": dropped, "poses_sent": sent, "pose_bytes": pose_bytes,
             "outlier_injected": injected_outlier, "downlink_dropped": downlink_dropped, "peak_frame_queue": peak_queue, "fallback_commanded": fallback_sent,
             "statuses": statuses, "hold": metrics,
@@ -305,6 +400,9 @@ def run(args, mav, recorder):
                 [row for row in hold if not args.blackout_seconds or row[0] < switched_at + 2],
                 switched_at, args.fixture),
             "blur_frames_ge_3px": sum(n >= 3 for n in blur_lengths),
+            "box": {"waypoints": box_waypoints, "side_m": args.box_m,
+                    "peak_blur_px": max(box_blur_lengths, default=0),
+                    "blur_frames_ge_3px": sum(n >= 3 for n in box_blur_lengths)},
             "outlier_response": outlier_response(hold, outlier_target), "outlier_usec": outlier_usec}
 
 
@@ -340,6 +438,8 @@ def acceptance_failures(result, args):
             failures.append(f"missing EKF evidence: {key}")
     if result["phase"] != "landed-and-disarmed":
         failures.append("landing/disarm unconfirmed")
+    if result.get("camera_guard") is not None:
+        failures.append("camera diagnostic exceeded flight envelope")
     hold = result["hold"]
     if result["hold_poses"] < 8 or (result.get("max_hold_pose_gap_s") or 0) > 0.5:
         failures.append("insufficient pose stream during ExternalNav hold")
@@ -354,8 +454,17 @@ def acceptance_failures(result, args):
         failures.append("insufficient valid estimate coverage")
     if getattr(args, "blur_min_px", 0) >= 3 and args.exposure_ms and not result["blur_frames_ge_3px"]:
         failures.append("requested blur was not applied")
-    if args.blackout_seconds and not result["fallback_commanded"]:
-        failures.append("fallback switch missing")
+    if getattr(args, "box_m", 0):
+        if len(result["box"]["waypoints"]) != 4:
+            failures.append("box flight did not reach all four waypoints")
+        if args.exposure_ms and not result["box"]["blur_frames_ge_3px"]:
+            failures.append("box flight did not exercise motion blur of at least 3 pixels")
+    if args.blackout_seconds:
+        if not result["fallback_commanded"]:
+            failures.append("fallback switch missing")
+        fallback_set = 3 if args.fallback_source == "flow" else 1
+        if not evidence.get(f"fallback_source_{fallback_set}_samples"):
+            failures.append("fallback source selection unconfirmed in EKF log")
     if args.blackout_seconds and args.fallback_source == "flow" and not any(
             "fusing optical flow" in status.lower() for status in result["statuses"]):
         failures.append("optical flow fusion unconfirmed")
@@ -372,6 +481,12 @@ def acceptance_failures(result, args):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--arducopter", type=Path, required=True)
+    parser.add_argument("--json-physics-port", type=int,
+                        help="Loopback port of an external ArduPilot JSON physics backend")
+    parser.add_argument("--gazebo-camera-frame", type=Path,
+                        help="Atomic latest-frame file written by the Gazebo RGB relay")
+    parser.add_argument("--simulated-plane-range", action="store_true",
+                        help="Derive the slant range to the native renderer's flat floor")
     parser.add_argument("--params", type=Path, default=Path("params/sitl-kxvo.parm"))
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--tracker", choices=("klt", "orb", "xfeat"), default="klt")
@@ -380,6 +495,8 @@ def main(argv=None):
     parser.add_argument("--fixture", action="store_true")
     parser.add_argument("--outlier-m", type=float, default=0,
                         help="Inject one north-position jump after switching to ExternalNav")
+    parser.add_argument("--stop-poses-after", type=float,
+                        help="Stop the pose stream this many seconds after ExternalNav selection")
     parser.add_argument("--full-covariance", action="store_true")
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--instance", type=int, default=0)
@@ -397,6 +514,8 @@ def main(argv=None):
     parser.add_argument("--exposure-ms", type=float, default=0)
     parser.add_argument("--blur-min-px", type=int, default=0, help="Explicit synthetic blur floor when exposure is enabled")
     parser.add_argument("--blackout-seconds", type=float, default=0)
+    parser.add_argument("--box-m", type=float, default=0, help="Fly a square of this side length after the hover")
+    parser.add_argument("--box-timeout", type=float, default=45, help="Time limit for the complete box")
     args = parser.parse_args(argv)
     if not args.arducopter.is_file() or not args.params.is_file():
         parser.error("Pass the local native ArduCopter binary and a SITL parameter file")
@@ -404,6 +523,14 @@ def main(argv=None):
         parser.error("Use a drop probability in [0, 1) and a positive uplink budget")
     if min(args.delay_ms, args.jitter_ms, args.exposure_ms, args.blackout_seconds, args.downlink_bps) < 0:
         parser.error("Delay, jitter, exposure and blackout must be nonnegative")
+    if args.gazebo_camera_frame and (args.json_physics_port is None or args.fixture):
+        parser.error("The Gazebo image relay requires JSON physics and a live tracker")
+    if args.stop_poses_after is not None and not 0 <= args.stop_poses_after < args.hold_seconds:
+        parser.error("Pose stop time must fall inside the ExternalNav hold")
+    if not 0 <= args.box_m <= 1.5 or args.box_timeout <= 0:
+        parser.error("Use a box side in [0, 1.5] m and a positive box timeout")
+    if args.box_m and (args.blackout_seconds or args.blur_min_px):
+        parser.error("The box profile uses continuous ExternalNav and motion-conditioned blur")
     if args.blackout_seconds and args.hold_seconds <= 2 + args.blackout_seconds:
         parser.error("Hold duration must extend past the blackout")
     args.output.mkdir(parents=True, exist_ok=False)
@@ -418,9 +545,12 @@ def main(argv=None):
     port = free_port()
     # No user-supplied MAVLink endpoint. The runner only talks to its child simulator.
     link = mavutil.mavlink_connection(f"udpin:127.0.0.1:{port}", source_system=255)
-    command_line = [str(args.arducopter.resolve()), "--model", "+", "--speedup", "1",
+    physics_model = "+" if args.json_physics_port is None else "JSON:127.0.0.1"
+    command_line = [str(args.arducopter.resolve()), "--model", physics_model, "--speedup", "1",
                     "--home", "51.5,-0.1,50,0", "--serial0", f"udpclient:127.0.0.1:{port}",
                     "--defaults", str(effective_params.resolve()), "-I", str(args.instance), "-w"]
+    if args.json_physics_port is not None:
+        command_line += ["--sim-port-out", str(args.json_physics_port)]
     (args.output / "setup.json").write_text(json.dumps({"command": command_line,
         "binary_sha256": sha256(args.arducopter), "params_sha256": sha256(effective_params), "effective_viso_delay_ms": compensation,
         **{k: str(v) if isinstance(v, Path) else v for k, v in vars(args).items()}}, indent=2) + "\n")

@@ -1,5 +1,9 @@
 # XFeat experiment results
 
+## Geometric training and simulator qualification
+
+The [follow-through results](benchmark-followthrough/README.md) include geometric and warp controls, paired native fallback repeats, the motion-blur box, pose-stream verdicts, JSON clock qualification and Gazebo runs.
+
 ## TartanAir V2 fine-tuning
 
 The [review correction](tartanair-xfeat-review/README.md) documents defects in the original recipe, the corrected training results and three paired baseline replays.

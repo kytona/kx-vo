@@ -252,3 +252,29 @@ def test_teacher_requests_all_detections_for_negative_mask():
     first, second = detector_targets(Teacher(), np.zeros((64, 64), dtype=np.uint8), np.eye(3))
     np.testing.assert_array_equal(first, points)
     np.testing.assert_array_equal(second, points)
+
+
+def test_geometric_projection_rejects_an_occluded_surface():
+    from kxvo.geometric_pairs import Projection
+
+    depth = np.full((64, 64), 4.0, dtype=np.float32)
+    other = depth.copy()
+    other[16, 27] = 1.0
+    projection = Projection(np.array([20., 20.]), np.array([32., 32.]), np.ones(2),
+                            depth, other, np.eye(3), np.array([-1., 0., 0.]))
+    points = np.array([[32., 16.], [32., 32.]])
+    targets, visible = projection.visible(points)
+    np.testing.assert_array_equal(targets, [[27., 16.], [27., 32.]])
+    np.testing.assert_array_equal(visible, [False, True])
+
+
+def test_lockstep_servo_packets_check_length_and_magic():
+    import struct
+    from kxvo.lockstep import servo_frame
+
+    sixteen = struct.pack("<HHI16H", 18458, 400, 123, *([1000] * 16))
+    thirty_two = struct.pack("<HHI32H", 29569, 400, 124, *([1000] * 32))
+    assert servo_frame(sixteen) == (400, 123)
+    assert servo_frame(thirty_two) == (400, 124)
+    with pytest.raises(ValueError):
+        servo_frame(thirty_two[:40])

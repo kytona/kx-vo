@@ -42,6 +42,28 @@ uv venv .venv && uv pip install --python .venv/bin/python -e ".[test]"
 
 After installing the package, run `kxbench quickstart runs/demo`. It generates a synthetic clip, a versioned JSON scenario and a scorecard. To run the same case again, use `kxbench run runs/demo/scenario.json --output runs/demo-repeat`. The scorecard records the inputs, coverage, position error and verdict. A run passes when it meets the manifest limits, fails when valid inputs produce insufficient pose coverage or excess error, and is invalid when the inputs or runner prevent evaluation.
 
+### Pose-stream scenarios and simulator checks
+
+The two pose-stream manifests exercise ArduPilot with known poses and retain DataFlash evidence. The stale stream is a deliberate failure with exit code 1.
+
+```sh
+kxbench run experiments/pose-stream-outlier.json --output runs/pose-outlier
+kxbench run experiments/pose-stream-stale.json --output runs/pose-stale
+python -m kxvo.lockstep --arducopter runs/ardupilot/build/sitl/bin/arducopter \
+  --output runs/json-clock-check
+```
+
+For Gazebo Harmonic, install the platform dependencies in the [ArduPilot Gazebo instructions](https://ardupilot.org/dev/docs/sitl-with-gazebo.html), then use the pinned build and runner:
+
+```sh
+scripts/build-gazebo-plugin.sh
+scripts/run-gazebo-sitl.sh runs/gazebo-physics --timeout 140
+scripts/run-gazebo-sitl.sh runs/gazebo-recovery --timeout 140 \
+  --blackout-seconds 1 --delay-ms 50 --fallback-source gps
+```
+
+These runs use Gazebo physics, kx-vo's synthetic renderer and a simulated floor range. Set `KXVO_GAZEBO_CAMERA_PYTHON` to a Python environment with compatible Gazebo Harmonic `gz.transport13` and `gz.msgs10` bindings and their Protobuf runtime to run the mounted-camera diagnostic. The diagnostic records Gazebo timestamps and the host receive-time difference between camera and truth messages. It records an explicit failure if the simulated vehicle leaves its flight envelope. Use `--box-m 0.7 --exposure-ms 55 --timeout 125` with native `kxvo.sitl` for the motion-blur box. [Measured results](results/benchmark-followthrough/README.md)
+
 ## Hardware path
 
 ```
@@ -104,6 +126,8 @@ scripts/evaluate-tartanair-xfeat.sh runs/my-tartanair mps
 The evaluator runs the held-out matches, three seeded MegaDepth solver passes, three paired synthetic replay fixtures, and native ArduPilot fallback scenarios. Set the third argument to `matches`, `replay`, or `sitl` for a single stage. The full evaluation needs the MegaDepth dataset and an ArduCopter SITL build. Experimental checkpoints that missed validation can be included by setting `KXVO_DIAGNOSTIC_FINAL=1`. Keep those outputs labelled as diagnostics.
 
 Use `python -m kxvo.tartanair --plan experiments/tartanair-xfeat.json --output runs/datasets/tartanair-geometry --neighbor-offset 2` to obtain nearby RGB frames, both depth maps, camera intrinsics and trajectory poses. The resulting `pairs.csv` can feed a geometry-based experiment. Interrupted downloads can resume with the same command. The downloader checks cached members against the pinned archive's CRC before reusing them.
+
+To reproduce the depth-and-pose comparison on the same validation pairs, run `scripts/run-geometric-xfeat.sh runs/my-geometric mps`. The script fits two seeds with geometric supervision and two with warp supervision, then writes per-seed validation results. [Geometric comparison](results/benchmark-followthrough/README.md)
 
 Start with a synthetic smoke test. It checks the code path from the official checkpoint through training and validation to a reloadable model.
 

@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "name": "external-pose-stream-stops",
+  "track": "pose_stream",
+  "seed": 1,
+  "fault": "stale",
+  "after_s": 1.25
+}

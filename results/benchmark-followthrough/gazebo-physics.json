@@ -1,0 +1,671 @@
+{
+  "gazebo": "Harmonic 8.15.0",
+  "plugin_revision": "f116b03552d05c8d0b0bed5ed67033a1183121d1",
+  "profiles": {
+    "stock-plane": {
+      "mode": "live kx-vo",
+      "tracker": "klt",
+      "checkpoint_sha256": null,
+      "phase": "landed-and-disarmed",
+      "range_source": "simulator truth and floor plane",
+      "frames": 488,
+      "valid_frames": 487,
+      "dropped": 0,
+      "poses_sent": 128,
+      "pose_bytes": 5632,
+      "outlier_injected": false,
+      "downlink_dropped": 0,
+      "peak_frame_queue": 1,
+      "fallback_commanded": false,
+      "statuses": [
+        "Barometer 1 calibration complete",
+        "Barometer 2 calibration complete",
+        "ArduPilot Ready",
+        "Field Elevation Set: 50m",
+        "EKF3 IMU0 initialised",
+        "EKF3 IMU1 initialised",
+        "EKF3 IMU0 tilt alignment complete",
+        "EKF3 IMU1 tilt alignment complete",
+        "EKF3 IMU0 MAG0 initial yaw alignment complete",
+        "EKF3 IMU1 MAG0 initial yaw alignment complete",
+        "GPS 1: probing for u-blox at 230400 baud",
+        "GPS 1: detected u-blox",
+        "Arming motors",
+        "EKF3 IMU0 origin set",
+        "EKF3 IMU1 origin set",
+        "EKF3 IMU0 yaw aligned",
+        "EKF3 IMU1 yaw aligned",
+        "EKF3 IMU0 is using external nav data",
+        "EKF3 IMU0 initial pos NED = 0.4,0.3,-1.6 (m)",
+        "EKF3 IMU1 is using external nav data",
+        "EKF3 IMU1 initial pos NED = 0.4,0.3,-1.6 (m)",
+        "Disarming motors"
+      ],
+      "hold": {
+        "drift_m": 0.022263898418832806,
+        "rms_error_m": 0.3248390954614075,
+        "valid_fraction": 1.0,
+        "duration_s": 6.953669917071238,
+        "truth_samples": 211
+      },
+      "hold_poses": 62,
+      "max_hold_pose_gap_s": 0.15645379200577736,
+      "external_nav_hold": {
+        "drift_m": 0.022263898418832806,
+        "rms_error_m": 0.3248390954614075,
+        "valid_fraction": 1.0,
+        "duration_s": 6.953669917071238
+      },
+      "blur_frames_ge_3px": 0,
+      "box": {
+        "waypoints": [],
+        "side_m": 0,
+        "peak_blur_px": 0,
+        "blur_frames_ge_3px": 0
+      },
+      "outlier_response": null,
+      "outlier_usec": null,
+      "dataflash": {
+        "secondary_samples": 212,
+        "vision_received": 127,
+        "vision_accepted": 127,
+        "secondary_horizontal_innovation_samples": 176,
+        "land_mode": true
+      },
+      "acceptance_failures": [
+        "horizontal estimator RMS exceeds limit"
+      ]
+    },
+    "north-aligned": {
+      "mode": "live kx-vo",
+      "tracker": "klt",
+      "checkpoint_sha256": null,
+      "phase": "landed-and-disarmed",
+      "range_source": "simulator truth and floor plane",
+      "frames": 493,
+      "valid_frames": 492,
+      "dropped": 0,
+      "poses_sent": 131,
+      "pose_bytes": 5764,
+      "outlier_injected": false,
+      "downlink_dropped": 0,
+      "peak_frame_queue": 1,
+      "fallback_commanded": false,
+      "statuses": [
+        "Barometer 1 calibration complete",
+        "Barometer 2 calibration complete",
+        "ArduPilot Ready",
+        "Field Elevation Set: 50m",
+        "EKF3 IMU0 initialised",
+        "EKF3 IMU1 initialised",
+        "EKF3 IMU0 tilt alignment complete",
+        "EKF3 IMU1 tilt alignment complete",
+        "EKF3 IMU0 MAG0 initial yaw alignment complete",
+        "EKF3 IMU1 MAG0 initial yaw alignment complete",
+        "GPS 1: probing for u-blox at 230400 baud",
+        "GPS 1: detected u-blox",
+        "Arming motors",
+        "EKF3 IMU0 origin set",
+        "EKF3 IMU1 origin set",
+        "EKF3 IMU0 is using external nav data",
+        "EKF3 IMU0 initial pos NED = 0.4,0.0,-1.6 (m)",
+        "EKF3 IMU1 is using external nav data",
+        "EKF3 IMU1 initial pos NED = 0.4,0.0,-1.6 (m)",
+        "EKF3 IMU0 yaw aligned",
+        "EKF3 IMU1 yaw aligned",
+        "Disarming motors"
+      ],
+      "hold": {
+        "drift_m": 0.02331744664337378,
+        "rms_error_m": 0.005571526505278419,
+        "valid_fraction": 1.0,
+        "duration_s": 6.972592750098556,
+        "truth_samples": 212
+      },
+      "hold_poses": 63,
+      "max_hold_pose_gap_s": 0.13523316709324718,
+      "external_nav_hold": {
+        "drift_m": 0.02331744664337378,
+        "rms_error_m": 0.005571526505278419,
+        "valid_fraction": 1.0,
+        "duration_s": 6.972592750098556
+      },
+      "blur_frames_ge_3px": 0,
+      "box": {
+        "waypoints": [],
+        "side_m": 0,
+        "peak_blur_px": 0,
+        "blur_frames_ge_3px": 0
+      },
+      "outlier_response": null,
+      "outlier_usec": null,
+      "dataflash": {
+        "secondary_samples": 218,
+        "vision_received": 131,
+        "vision_accepted": 131,
+        "secondary_horizontal_innovation_samples": 143,
+        "land_mode": true
+      },
+      "acceptance_failures": []
+    },
+    "recovery": {
+      "mode": "live kx-vo",
+      "tracker": "klt",
+      "checkpoint_sha256": null,
+      "phase": "landed-and-disarmed",
+      "range_source": "simulator truth and floor plane",
+      "frames": 434,
+      "valid_frames": 433,
+      "dropped": 28,
+      "poses_sent": 128,
+      "pose_bytes": 5632,
+      "outlier_injected": false,
+      "downlink_dropped": 0,
+      "peak_frame_queue": 4,
+      "fallback_commanded": true,
+      "statuses": [
+        "Barometer 1 calibration complete",
+        "Barometer 2 calibration complete",
+        "ArduPilot Ready",
+        "Field Elevation Set: 50m",
+        "EKF3 IMU0 initialised",
+        "EKF3 IMU1 initialised",
+        "EKF3 IMU0 tilt alignment complete",
+        "EKF3 IMU1 tilt alignment complete",
+        "EKF3 IMU0 MAG0 initial yaw alignment complete",
+        "EKF3 IMU1 MAG0 initial yaw alignment complete",
+        "GPS 1: probing for u-blox at 230400 baud",
+        "GPS 1: detected u-blox",
+        "Arming motors",
+        "EKF3 IMU0 origin set",
+        "EKF3 IMU1 origin set",
+        "EKF3 IMU0 yaw aligned",
+        "EKF3 IMU1 yaw aligned",
+        "EKF3 IMU0 is using external nav data",
+        "EKF3 IMU0 initial pos NED = 0.4,0.0,-1.6 (m)",
+        "EKF3 IMU1 is using external nav data",
+        "EKF3 IMU1 initial pos NED = 0.4,0.0,-1.6 (m)",
+        "Disarming motors"
+      ],
+      "hold": {
+        "drift_m": 0.03339584762824921,
+        "rms_error_m": 0.009740031141045987,
+        "valid_fraction": 1.0,
+        "duration_s": 6.8941295829135925,
+        "truth_samples": 190
+      },
+      "hold_poses": 16,
+      "max_hold_pose_gap_s": 0.1416309999767691,
+      "external_nav_hold": {
+        "drift_m": 0.03339584762824921,
+        "rms_error_m": 0.008983545425522719,
+        "valid_fraction": 1.0,
+        "duration_s": 0.9586359160020947
+      },
+      "blur_frames_ge_3px": 0,
+      "box": {
+        "waypoints": [],
+        "side_m": 0,
+        "peak_blur_px": 0,
+        "blur_frames_ge_3px": 0
+      },
+      "outlier_response": null,
+      "outlier_usec": null,
+      "dataflash": {
+        "secondary_samples": 34,
+        "vision_received": 127,
+        "vision_accepted": 127,
+        "secondary_horizontal_innovation_samples": 6,
+        "land_mode": true,
+        "fallback_source_1_samples": 164
+      },
+      "acceptance_failures": []
+    }
+  },
+  "rgb_sensor_probe": {
+    "topic": "/kxvo/front_camera",
+    "width": 320,
+    "height": 240,
+    "frames": [
+      {
+        "timestamp_ns": 5000000,
+        "sha256": "9fd93ed0bcb61361415b66e3ae831da45f2300b4b97ff84f62bd4e03603acad5"
+      },
+      {
+        "timestamp_ns": 35000000,
+        "sha256": "1bb4321c5383347eca0125cfb61cafeaf32a55a8bedc34be76cccda6451c9fa8"
+      },
+      {
+        "timestamp_ns": 67500000,
+        "sha256": "fb53a320fc82bf914efea204e36deaa7d72ba96ccf858e36a7aff0342908120b"
+      }
+    ]
+  },
+  "world_sha256": "f8775a66f37d7f93faa737f75c922344c4c9bc761de272b7fbc96266a873f882",
+  "camera_template_sha256": "c913bee2acab89e68d82007c050cbfe1d55dcbcc45af2d62843696bb534b904a",
+  "camera_trials": {
+    "camera-flight": {
+      "world_sha256": "7c224cdc0ddd1c5bd80c7ff6da2dad50a8fed96770250070dd9f6feaa7bcf0d8",
+      "absolute_receive_delta_p50_p95_ms": [
+        15.355250099673867,
+        37.33983347192407
+      ],
+      "summary": {
+        "mode": "live kx-vo",
+        "tracker": "klt",
+        "checkpoint_sha256": null,
+        "phase": "landed-and-disarmed",
+        "camera_source": "Gazebo RGB",
+        "range_source": "simulator truth and floor plane",
+        "frames": 505,
+        "valid_frames": 67,
+        "dropped": 11,
+        "poses_sent": 22,
+        "pose_bytes": 968,
+        "outlier_injected": false,
+        "downlink_dropped": 0,
+        "peak_frame_queue": 1,
+        "fallback_commanded": false,
+        "statuses": [
+          "RCInput: decoding UDP (Pulses)",
+          "Calibrating barometer",
+          "Barometer 1 calibration complete",
+          "Barometer 2 calibration complete",
+          "ArduPilot Ready",
+          "Field Elevation Set: 50m",
+          "EKF3 IMU0 initialised",
+          "EKF3 IMU1 initialised",
+          "EKF3 IMU0 tilt alignment complete",
+          "EKF3 IMU1 tilt alignment complete",
+          "EKF3 IMU0 MAG0 initial yaw alignment complete",
+          "EKF3 IMU1 MAG0 initial yaw alignment complete",
+          "GPS 1: probing for u-blox at 230400 baud",
+          "GPS 1: detected u-blox",
+          "Arming motors",
+          "EKF3 IMU0 origin set",
+          "EKF3 IMU1 origin set",
+          "EKF3 IMU0 is using external nav data",
+          "EKF3 IMU0 initial pos NED = 2.5,0.4,-0.8 (m)",
+          "EKF3 IMU1 is using external nav data",
+          "EKF3 IMU1 initial pos NED = 2.5,0.4,-0.8 (m)",
+          "EKF3 IMU0 yaw aligned",
+          "EKF3 IMU1 yaw aligned",
+          "EKF3 IMU0 stopped aiding",
+          "EKF3 IMU1 stopped aiding",
+          "Crash: Disarming: AngErr=150>30, Accel=1.6<3.0",
+          "Disarming motors"
+        ],
+        "hold": {
+          "drift_m": 25.00427066419585,
+          "rms_error_m": null,
+          "valid_fraction": 0.0,
+          "duration_s": 6.918147917138413,
+          "truth_samples": 209
+        },
+        "hold_poses": 2,
+        "max_hold_pose_gap_s": 7.735053958836943,
+        "external_nav_hold": {
+          "drift_m": 24.729186513590275,
+          "rms_error_m": null,
+          "valid_fraction": 0.0,
+          "duration_s": 6.918147917138413
+        },
+        "blur_frames_ge_3px": 0,
+        "box": {
+          "waypoints": [],
+          "side_m": 0,
+          "peak_blur_px": 0,
+          "blur_frames_ge_3px": 0
+        },
+        "outlier_response": null,
+        "outlier_usec": null,
+        "dataflash": {
+          "secondary_samples": 318,
+          "vision_received": 22,
+          "vision_accepted": 22,
+          "secondary_horizontal_innovation_samples": 314,
+          "land_mode": true
+        },
+        "acceptance_failures": [
+          "insufficient pose stream during ExternalNav hold",
+          "hold drift exceeds limit",
+          "horizontal estimator RMS exceeds limit",
+          "insufficient valid estimate coverage"
+        ]
+      }
+    },
+    "camera-guard": {
+      "world_sha256": "7c224cdc0ddd1c5bd80c7ff6da2dad50a8fed96770250070dd9f6feaa7bcf0d8",
+      "absolute_receive_delta_p50_p95_ms": [
+        3.46016651019454,
+        33.645246375817806
+      ],
+      "summary": {
+        "mode": "live kx-vo",
+        "tracker": "klt",
+        "checkpoint_sha256": null,
+        "phase": "landed-and-disarmed",
+        "camera_guard": {
+          "t": 26.234892916167155,
+          "event": "camera diagnostic exceeded flight envelope",
+          "truth_p": [
+            2.092806426850134,
+            -0.21482384397755494,
+            -0.9900001525878892
+          ]
+        },
+        "camera_source": "Gazebo RGB",
+        "range_source": "simulator truth and floor plane",
+        "frames": 498,
+        "valid_frames": 189,
+        "dropped": 0,
+        "poses_sent": 12,
+        "pose_bytes": 528,
+        "outlier_injected": false,
+        "downlink_dropped": 0,
+        "peak_frame_queue": 1,
+        "fallback_commanded": false,
+        "statuses": [
+          "Barometer 1 calibration complete",
+          "Barometer 2 calibration complete",
+          "ArduPilot Ready",
+          "Field Elevation Set: 50m",
+          "EKF3 IMU0 initialised",
+          "EKF3 IMU1 initialised",
+          "EKF3 IMU0 tilt alignment complete",
+          "EKF3 IMU1 tilt alignment complete",
+          "EKF3 IMU0 MAG0 initial yaw alignment complete",
+          "EKF3 IMU1 MAG0 initial yaw alignment complete",
+          "GPS 1: probing for u-blox at 230400 baud",
+          "GPS 1: detected u-blox",
+          "Arming motors",
+          "EKF3 IMU0 origin set",
+          "EKF3 IMU1 origin set",
+          "Crash: Disarming: AngErr=151>30, Accel=0.2<3.0",
+          "Disarming motors"
+        ],
+        "hold": {},
+        "hold_poses": 0,
+        "max_hold_pose_gap_s": null,
+        "external_nav_hold": {},
+        "blur_frames_ge_3px": 0,
+        "box": {
+          "waypoints": [],
+          "side_m": 0,
+          "peak_blur_px": 0,
+          "blur_frames_ge_3px": 0
+        },
+        "outlier_response": null,
+        "outlier_usec": null,
+        "dataflash": {
+          "secondary_samples": 0,
+          "vision_received": 12,
+          "vision_accepted": 12,
+          "secondary_horizontal_innovation_samples": 0,
+          "land_mode": true
+        },
+        "acceptance_failures": [
+          "missing EKF evidence: secondary_samples",
+          "missing EKF evidence: secondary_horizontal_innovation_samples",
+          "camera diagnostic exceeded flight envelope",
+          "insufficient pose stream during ExternalNav hold",
+          "insufficient hold duration",
+          "hold drift exceeds limit",
+          "horizontal estimator RMS exceeds limit",
+          "insufficient valid estimate coverage"
+        ]
+      }
+    },
+    "camera-corrected": {
+      "world_sha256": "5494a7cebc66f5ae3c3b60a07d78809fce4f2166312d225e95a342acfb67a5cc",
+      "absolute_receive_delta_p50_p95_ms": [
+        3.6925210151821375,
+        39.789462415501454
+      ],
+      "summary": {
+        "mode": "live kx-vo",
+        "tracker": "klt",
+        "checkpoint_sha256": null,
+        "phase": "landed-and-disarmed",
+        "camera_guard": null,
+        "camera_source": "Gazebo RGB",
+        "range_source": "simulator truth and floor plane",
+        "frames": 410,
+        "valid_frames": 408,
+        "dropped": 2,
+        "poses_sent": 131,
+        "pose_bytes": 5764,
+        "outlier_injected": false,
+        "downlink_dropped": 0,
+        "peak_frame_queue": 1,
+        "fallback_commanded": false,
+        "statuses": [
+          "RCInput: decoding UDP (Pulses)",
+          "Calibrating barometer",
+          "Barometer 1 calibration complete",
+          "Barometer 2 calibration complete",
+          "ArduPilot Ready",
+          "Field Elevation Set: 50m",
+          "EKF3 IMU0 initialised",
+          "EKF3 IMU1 initialised",
+          "EKF3 IMU0 tilt alignment complete",
+          "EKF3 IMU1 tilt alignment complete",
+          "EKF3 IMU0 MAG0 initial yaw alignment complete",
+          "EKF3 IMU1 MAG0 initial yaw alignment complete",
+          "GPS 1: probing for u-blox at 230400 baud",
+          "GPS 1: detected u-blox",
+          "Arming motors",
+          "EKF3 IMU0 origin set",
+          "EKF3 IMU1 origin set",
+          "EKF3 IMU0 yaw aligned",
+          "EKF3 IMU1 yaw aligned",
+          "EKF3 IMU0 is using external nav data",
+          "EKF3 IMU0 initial pos NED = 0.1,0.0,-1.6 (m)",
+          "EKF3 IMU1 is using external nav data",
+          "EKF3 IMU1 initial pos NED = 0.1,0.0,-1.6 (m)",
+          "Disarming motors"
+        ],
+        "hold": {
+          "drift_m": 0.026225364041896956,
+          "rms_error_m": 0.4627654797185689,
+          "valid_fraction": 1.0,
+          "duration_s": 6.930817291140556,
+          "truth_samples": 202
+        },
+        "hold_poses": 61,
+        "max_hold_pose_gap_s": 0.20097829098813236,
+        "external_nav_hold": {
+          "drift_m": 0.026225364041896956,
+          "rms_error_m": 0.4627654797185689,
+          "valid_fraction": 1.0,
+          "duration_s": 6.930817291140556
+        },
+        "blur_frames_ge_3px": 0,
+        "box": {
+          "waypoints": [],
+          "side_m": 0,
+          "peak_blur_px": 0,
+          "blur_frames_ge_3px": 0
+        },
+        "outlier_response": null,
+        "outlier_usec": null,
+        "dataflash": {
+          "secondary_samples": 214,
+          "vision_received": 131,
+          "vision_accepted": 131,
+          "secondary_horizontal_innovation_samples": 122,
+          "land_mode": true
+        },
+        "acceptance_failures": [
+          "horizontal estimator RMS exceeds limit"
+        ]
+      }
+    },
+    "camera-floor": {
+      "world_sha256": "ad8f9965d1e8018ac0787d3572c072cfd82214f4d151bf9ed02fd7c09b0fae49",
+      "absolute_receive_delta_p50_p95_ms": [
+        3.8977499352768064,
+        35.70654813665896
+      ],
+      "summary": {
+        "mode": "live kx-vo",
+        "tracker": "klt",
+        "checkpoint_sha256": null,
+        "phase": "landed-and-disarmed",
+        "camera_guard": null,
+        "camera_source": "Gazebo RGB",
+        "range_source": "simulator truth and floor plane",
+        "frames": 390,
+        "valid_frames": 389,
+        "dropped": 0,
+        "poses_sent": 127,
+        "pose_bytes": 5588,
+        "outlier_injected": false,
+        "downlink_dropped": 0,
+        "peak_frame_queue": 1,
+        "fallback_commanded": false,
+        "statuses": [
+          "RCInput: decoding UDP (Pulses)",
+          "Calibrating barometer",
+          "Barometer 1 calibration complete",
+          "Barometer 2 calibration complete",
+          "ArduPilot Ready",
+          "Field Elevation Set: 50m",
+          "EKF3 IMU0 initialised",
+          "EKF3 IMU1 initialised",
+          "EKF3 IMU0 tilt alignment complete",
+          "EKF3 IMU1 tilt alignment complete",
+          "EKF3 IMU0 MAG0 initial yaw alignment complete",
+          "EKF3 IMU1 MAG0 initial yaw alignment complete",
+          "GPS 1: probing for u-blox at 230400 baud",
+          "GPS 1: detected u-blox",
+          "Arming motors",
+          "EKF3 IMU0 origin set",
+          "EKF3 IMU1 origin set",
+          "EKF3 IMU0 yaw aligned",
+          "EKF3 IMU1 yaw aligned",
+          "EKF3 IMU0 is using external nav data",
+          "EKF3 IMU0 initial pos NED = 0.3,0.0,-1.6 (m)",
+          "EKF3 IMU1 is using external nav data",
+          "EKF3 IMU1 initial pos NED = 0.3,0.0,-1.6 (m)",
+          "Disarming motors"
+        ],
+        "hold": {
+          "drift_m": 0.03555327690854254,
+          "rms_error_m": 0.09292951168544533,
+          "valid_fraction": 1.0,
+          "duration_s": 6.966804125113413,
+          "truth_samples": 207
+        },
+        "hold_poses": 61,
+        "max_hold_pose_gap_s": 0.16512129199691117,
+        "external_nav_hold": {
+          "drift_m": 0.03555327690854254,
+          "rms_error_m": 0.09292951168544533,
+          "valid_fraction": 1.0,
+          "duration_s": 6.966804125113413
+        },
+        "blur_frames_ge_3px": 0,
+        "box": {
+          "waypoints": [],
+          "side_m": 0,
+          "peak_blur_px": 0,
+          "blur_frames_ge_3px": 0
+        },
+        "outlier_response": null,
+        "outlier_usec": null,
+        "dataflash": {
+          "secondary_samples": 202,
+          "vision_received": 126,
+          "vision_accepted": 126,
+          "secondary_horizontal_innovation_samples": 83,
+          "land_mode": true
+        },
+        "acceptance_failures": []
+      }
+    },
+    "camera-recovery": {
+      "world_sha256": "ad8f9965d1e8018ac0787d3572c072cfd82214f4d151bf9ed02fd7c09b0fae49",
+      "absolute_receive_delta_p50_p95_ms": [
+        4.887166898697615,
+        10.61786627396941
+      ],
+      "summary": {
+        "mode": "live kx-vo",
+        "tracker": "klt",
+        "checkpoint_sha256": null,
+        "phase": "landed-and-disarmed",
+        "camera_guard": null,
+        "camera_source": "Gazebo RGB",
+        "range_source": "simulator truth and floor plane",
+        "frames": 417,
+        "valid_frames": 416,
+        "dropped": 21,
+        "poses_sent": 127,
+        "pose_bytes": 5588,
+        "outlier_injected": false,
+        "downlink_dropped": 0,
+        "peak_frame_queue": 2,
+        "fallback_commanded": true,
+        "statuses": [
+          "Calibrating barometer",
+          "Barometer 1 calibration complete",
+          "Barometer 2 calibration complete",
+          "ArduPilot Ready",
+          "Field Elevation Set: 50m",
+          "EKF3 IMU0 initialised",
+          "EKF3 IMU1 initialised",
+          "EKF3 IMU0 tilt alignment complete",
+          "EKF3 IMU1 tilt alignment complete",
+          "EKF3 IMU0 MAG0 initial yaw alignment complete",
+          "EKF3 IMU1 MAG0 initial yaw alignment complete",
+          "GPS 1: probing for u-blox at 230400 baud",
+          "GPS 1: detected u-blox",
+          "Arming motors",
+          "EKF3 IMU0 origin set",
+          "EKF3 IMU1 origin set",
+          "EKF3 IMU0 yaw aligned",
+          "EKF3 IMU1 yaw aligned",
+          "EKF3 IMU0 is using external nav data",
+          "EKF3 IMU0 initial pos NED = 0.4,0.0,-1.6 (m)",
+          "EKF3 IMU1 is using external nav data",
+          "EKF3 IMU1 initial pos NED = 0.4,0.0,-1.6 (m)",
+          "Disarming motors"
+        ],
+        "hold": {
+          "drift_m": 0.030461130663240524,
+          "rms_error_m": 0.09698896688381296,
+          "valid_fraction": 1.0,
+          "duration_s": 6.8939682089257985,
+          "truth_samples": 212
+        },
+        "hold_poses": 16,
+        "max_hold_pose_gap_s": 0.16230812505818903,
+        "external_nav_hold": {
+          "drift_m": 0.022263898418832917,
+          "rms_error_m": 0.09391804353688822,
+          "valid_fraction": 1.0,
+          "duration_s": 0.9548823749646544
+        },
+        "blur_frames_ge_3px": 0,
+        "box": {
+          "waypoints": [],
+          "side_m": 0,
+          "peak_blur_px": 0,
+          "blur_frames_ge_3px": 0
+        },
+        "outlier_response": null,
+        "outlier_usec": null,
+        "dataflash": {
+          "secondary_samples": 36,
+          "vision_received": 127,
+          "vision_accepted": 127,
+          "secondary_horizontal_innovation_samples": 10,
+          "land_mode": true,
+          "fallback_source_1_samples": 186
+        },
+        "acceptance_failures": []
+      }
+    }
+  }
+}

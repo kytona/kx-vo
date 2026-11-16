@@ -1,0 +1,65 @@
+[
+  {
+    "scene": "AbandonedFactory2",
+    "difficulty": "Data_easy",
+    "routes": [
+      [
+        "P000",
+        "train",
+        30
+      ],
+      [
+        "P003",
+        "train",
+        30
+      ],
+      [
+        "P005",
+        "validation",
+        20
+      ]
+    ]
+  },
+  {
+    "scene": "ForestEnv",
+    "difficulty": "Data_easy",
+    "routes": [
+      [
+        "P000",
+        "train",
+        30
+      ],
+      [
+        "P004",
+        "train",
+        30
+      ],
+      [
+        "P009",
+        "validation",
+        20
+      ]
+    ]
+  },
+  {
+    "scene": "AmericanDiner",
+    "difficulty": "Data_easy",
+    "routes": [
+      [
+        "P000",
+        "train",
+        30
+      ],
+      [
+        "P003",
+        "train",
+        30
+      ],
+      [
+        "P005",
+        "validation",
+        20
+      ]
+    ]
+  }
+]

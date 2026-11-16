@@ -10,6 +10,38 @@ from .score import load_reference, score
 from .trackers import sha256
 
 
+def run_pose_stream(manifest, config, output, arducopter, instance):
+    from .sitl import main as sitl
+
+    output.mkdir(parents=True)
+    flight = output / "flight"
+    result = {"scenario": config.get("name", manifest.stem), "track": "pose_stream",
+              "manifest_sha256": sha256(manifest)}
+    try:
+        argv = ["--arducopter", str(arducopter), "--output", str(flight), "--fixture",
+                "--seed", str(config["seed"]), "--instance", str(instance), "--timeout", "110"]
+        fault = config["fault"]
+        if fault == "outlier":
+            offset = float(config["offset_m"])
+            if not 0 < offset <= 10:
+                raise ValueError("Outlier must be in (0, 10] metres")
+            argv += ["--outlier-m", str(offset), "--full-covariance"]
+        elif fault == "stale":
+            argv += ["--stop-poses-after", str(config["after_s"])]
+        else:
+            raise ValueError(f"Unsupported pose-stream fault: {fault}")
+        status = sitl(argv)
+        summary = json.loads((flight / "summary.json").read_text())
+        if not summary["dataflash"]:
+            raise ValueError("Missing DataFlash evidence from the simulator")
+        result.update(verdict="pass" if status == 0 else "fail", evidence=summary)
+    except (KeyError, TypeError, ValueError, OSError, SystemExit) as exc:
+        result.update(verdict="invalid", reason=str(exc))
+    (output / "score.json").write_text(json.dumps(result, indent=2, allow_nan=False) + "\n")
+    print(f"{result['verdict']}: {output / 'score.json'}")
+    return {"pass": 0, "fail": 1, "invalid": 2}[result["verdict"]]
+
+
 def run(manifest, output, tracker, checkpoint, device):
     config = json.loads(manifest.read_text())
     if (not isinstance(config, dict) or config.get("version") != 1
@@ -94,10 +126,15 @@ def main(argv=None):
     replay.add_argument("--tracker", choices=["klt", "orb", "xfeat"], default="klt")
     replay.add_argument("--checkpoint", type=Path)
     replay.add_argument("--device", default="cpu")
+    replay.add_argument("--arducopter", type=Path, default=Path("runs/ardupilot/build/sitl/bin/arducopter"))
+    replay.add_argument("--instance", type=int, default=0)
     args = parser.parse_args(argv)
     try:
         if args.action == "quickstart":
             return quickstart(args.output)
+        config = json.loads(args.scenario.read_text())
+        if isinstance(config, dict) and config.get("version") == 1 and config.get("track") == "pose_stream":
+            return run_pose_stream(args.scenario, config, args.output, args.arducopter, args.instance)
         return run(args.scenario, args.output, args.tracker, args.checkpoint, args.device)
     except (ValueError, OSError) as exc:
         parser.exit(2, f"{exc}\n")

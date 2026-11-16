@@ -1,0 +1,480 @@
+{
+  "dataset": {
+    "revision": "0d2d145e973832742a2aaa04b7d2ebffc8d82817",
+    "plan": [
+      {
+        "scene": "AbandonedFactory2",
+        "difficulty": "Data_easy",
+        "routes": [
+          [
+            "P000",
+            "train",
+            30
+          ],
+          [
+            "P003",
+            "train",
+            30
+          ],
+          [
+            "P005",
+            "validation",
+            20
+          ]
+        ]
+      },
+      {
+        "scene": "ForestEnv",
+        "difficulty": "Data_easy",
+        "routes": [
+          [
+            "P000",
+            "train",
+            30
+          ],
+          [
+            "P004",
+            "train",
+            30
+          ],
+          [
+            "P009",
+            "validation",
+            20
+          ]
+        ]
+      },
+      {
+        "scene": "AmericanDiner",
+        "difficulty": "Data_easy",
+        "routes": [
+          [
+            "P000",
+            "train",
+            30
+          ],
+          [
+            "P003",
+            "train",
+            30
+          ],
+          [
+            "P005",
+            "validation",
+            20
+          ]
+        ]
+      }
+    ],
+    "neighbor_offset": 2,
+    "source": "https://huggingface.co/datasets/theairlabcmu/tartanair2/resolve/0d2d145e973832742a2aaa04b7d2ebffc8d82817",
+    "rights": "CC BY 4.0 (https://tartanair.org/)",
+    "bytes_transferred_this_attempt": 499661627
+  },
+  "pairs_sha256": "36f4b2ba199d7fbd5611540c06c7b7a4643739ac5288f0b3438be1addfc1d183",
+  "manifest_sha256": "927bb7e1523fbcd6cbd6222d602c4c9d47031d168ee3a62324ef1738ff001219",
+  "arms": {
+    "geometric": {
+      "1": {
+        "config": {
+          "manifest": "runs/geometric-comparison/dataset/manifest.csv",
+          "output": "runs/geometric-comparison/geometric",
+          "xfeat_source": "runs/xfeat-upstream",
+          "checkpoint": "runs/xfeat-upstream/weights/xfeat.pt",
+          "device": "mps",
+          "train_detector": true,
+          "seeds": [
+            1,
+            2
+          ],
+          "steps": 1000,
+          "validate_every": 500,
+          "batch": 4,
+          "lr": 3e-05,
+          "width": 320,
+          "height": 320,
+          "max_blur": 11,
+          "geometric_pairs": "runs/geometric-comparison/dataset/pairs.csv",
+          "validation_scenario": null,
+          "min_blur_gain": 0.01,
+          "max_clean_loss": 0.02
+        },
+        "seed": 1,
+        "torch": "2.15.0",
+        "opencv": "5.0.0",
+        "base_sha256": "0f5187fd7bedd26c7fe6acc9685444493a165a35ecc087b33c2db3627f3ea10b",
+        "xfeat_revision": "e92685f57f8318b18725c5c8c0bd28c7fe188d9a",
+        "teacher": "pinned XFeat on clean frames",
+        "reliability_target": "product of detached forward and reverse true-match probabilities",
+        "validation": [
+          {
+            "step": 0,
+            "clean": {
+              "precision": 0.5308891131292746,
+              "recall": 0.30122781347413957,
+              "correct": 4735,
+              "matches": 8919,
+              "visible": 15719,
+              "coverage_8x6": 0.5465277777777777
+            },
+            "blur": {
+              "precision": 0.4319237043543732,
+              "recall": 0.21897067243463325,
+              "correct": 3442,
+              "matches": 7969,
+              "visible": 15719,
+              "coverage_8x6": 0.4753472222222222
+            }
+          },
+          {
+            "step": 500,
+            "loss": 4.000749440670013,
+            "seconds": 42.77378045790829,
+            "sha256": "793641d3afec8554c582890c2a01f06e017deed12ed075cb331d3acb068912c6",
+            "selected": false,
+            "clean": {
+              "precision": 0.493705035971223,
+              "recall": 0.2831538907871833,
+              "correct": 4392,
+              "matches": 8896,
+              "visible": 15511,
+              "coverage_8x6": 0.5652777777777778
+            },
+            "blur": {
+              "precision": 0.3986286795129448,
+              "recall": 0.2173941074076462,
+              "correct": 3372,
+              "matches": 8459,
+              "visible": 15511,
+              "coverage_8x6": 0.49583333333333335
+            }
+          },
+          {
+            "step": 1000,
+            "loss": 3.644036520957947,
+            "seconds": 82.69594783289358,
+            "sha256": "8f54b05a23534e83ed09a66b542dda26ee7d3580bd775c7b5ca5b1c9ba34e56c",
+            "selected": false,
+            "clean": {
+              "precision": 0.49880369146633247,
+              "recall": 0.28655583191517214,
+              "correct": 4378,
+              "matches": 8777,
+              "visible": 15278,
+              "coverage_8x6": 0.5645833333333333
+            },
+            "blur": {
+              "precision": 0.402349838148903,
+              "recall": 0.21966225945804424,
+              "correct": 3356,
+              "matches": 8341,
+              "visible": 15278,
+              "coverage_8x6": 0.49618055555555557
+            }
+          }
+        ]
+      },
+      "2": {
+        "config": {
+          "manifest": "runs/geometric-comparison/dataset/manifest.csv",
+          "output": "runs/geometric-comparison/geometric",
+          "xfeat_source": "runs/xfeat-upstream",
+          "checkpoint": "runs/xfeat-upstream/weights/xfeat.pt",
+          "device": "mps",
+          "train_detector": true,
+          "seeds": [
+            1,
+            2
+          ],
+          "steps": 1000,
+          "validate_every": 500,
+          "batch": 4,
+          "lr": 3e-05,
+          "width": 320,
+          "height": 320,
+          "max_blur": 11,
+          "geometric_pairs": "runs/geometric-comparison/dataset/pairs.csv",
+          "validation_scenario": null,
+          "min_blur_gain": 0.01,
+          "max_clean_loss": 0.02
+        },
+        "seed": 2,
+        "torch": "2.15.0",
+        "opencv": "5.0.0",
+        "base_sha256": "0f5187fd7bedd26c7fe6acc9685444493a165a35ecc087b33c2db3627f3ea10b",
+        "xfeat_revision": "e92685f57f8318b18725c5c8c0bd28c7fe188d9a",
+        "teacher": "pinned XFeat on clean frames",
+        "reliability_target": "product of detached forward and reverse true-match probabilities",
+        "validation": [
+          {
+            "step": 0,
+            "clean": {
+              "precision": 0.5308891131292746,
+              "recall": 0.30122781347413957,
+              "correct": 4735,
+              "matches": 8919,
+              "visible": 15719,
+              "coverage_8x6": 0.5465277777777777
+            },
+            "blur": {
+              "precision": 0.4319237043543732,
+              "recall": 0.21897067243463325,
+              "correct": 3442,
+              "matches": 7969,
+              "visible": 15719,
+              "coverage_8x6": 0.4753472222222222
+            }
+          },
+          {
+            "step": 500,
+            "loss": 4.02693897485733,
+            "seconds": 42.10722250002436,
+            "sha256": "a94bcc7473f38eb36c5fc8873d31eab15e60dc632168ef731ad45b46ebdd08ef",
+            "selected": false,
+            "clean": {
+              "precision": 0.4974721941354904,
+              "recall": 0.28553004900696416,
+              "correct": 4428,
+              "matches": 8901,
+              "visible": 15508,
+              "coverage_8x6": 0.5649305555555556
+            },
+            "blur": {
+              "precision": 0.4066078244274809,
+              "recall": 0.21982202734072737,
+              "correct": 3409,
+              "matches": 8384,
+              "visible": 15508,
+              "coverage_8x6": 0.49201388888888886
+            }
+          },
+          {
+            "step": 1000,
+            "loss": 3.6671649284362795,
+            "seconds": 85.46518708299845,
+            "sha256": "4b3b0892e740a790f990c7245bc43f7730cd5feeb557b2721b9cbdbcf2a4fd78",
+            "selected": false,
+            "clean": {
+              "precision": 0.4972035155804132,
+              "recall": 0.28513451593899325,
+              "correct": 4356,
+              "matches": 8761,
+              "visible": 15277,
+              "coverage_8x6": 0.559375
+            },
+            "blur": {
+              "precision": 0.4022615181041742,
+              "recall": 0.21889114354912614,
+              "correct": 3344,
+              "matches": 8313,
+              "visible": 15277,
+              "coverage_8x6": 0.49166666666666664
+            }
+          }
+        ]
+      }
+    },
+    "warp": {
+      "1": {
+        "config": {
+          "manifest": "runs/geometric-comparison/dataset/manifest.csv",
+          "output": "runs/geometric-comparison/warp",
+          "xfeat_source": "runs/xfeat-upstream",
+          "checkpoint": "runs/xfeat-upstream/weights/xfeat.pt",
+          "device": "mps",
+          "train_detector": true,
+          "seeds": [
+            1,
+            2
+          ],
+          "steps": 1000,
+          "validate_every": 500,
+          "batch": 4,
+          "lr": 3e-05,
+          "width": 320,
+          "height": 320,
+          "max_blur": 11,
+          "geometric_pairs": "runs/geometric-comparison/dataset/pairs.csv",
+          "warp_supervision": true,
+          "validation_scenario": null,
+          "min_blur_gain": 0.01,
+          "max_clean_loss": 0.02
+        },
+        "seed": 1,
+        "torch": "2.15.0",
+        "opencv": "5.0.0",
+        "base_sha256": "0f5187fd7bedd26c7fe6acc9685444493a165a35ecc087b33c2db3627f3ea10b",
+        "xfeat_revision": "e92685f57f8318b18725c5c8c0bd28c7fe188d9a",
+        "teacher": "pinned XFeat on clean frames",
+        "reliability_target": "product of detached forward and reverse true-match probabilities",
+        "validation": [
+          {
+            "step": 0,
+            "clean": {
+              "precision": 0.5308891131292746,
+              "recall": 0.30122781347413957,
+              "correct": 4735,
+              "matches": 8919,
+              "visible": 15719,
+              "coverage_8x6": 0.5465277777777777
+            },
+            "blur": {
+              "precision": 0.4319237043543732,
+              "recall": 0.21897067243463325,
+              "correct": 3442,
+              "matches": 7969,
+              "visible": 15719,
+              "coverage_8x6": 0.4753472222222222
+            }
+          },
+          {
+            "step": 500,
+            "loss": 2.509238934516907,
+            "seconds": 32.543649750063196,
+            "sha256": "0ed8c4568b02e30c0c4bf43c57672615c5f06d371121666f87a86c1e0311885b",
+            "selected": false,
+            "clean": {
+              "precision": 0.4868630086765245,
+              "recall": 0.2588525761808849,
+              "correct": 3984,
+              "matches": 8183,
+              "visible": 15391,
+              "coverage_8x6": 0.5496527777777778
+            },
+            "blur": {
+              "precision": 0.4044825313117996,
+              "recall": 0.19933727503086218,
+              "correct": 3068,
+              "matches": 7585,
+              "visible": 15391,
+              "coverage_8x6": 0.4826388888888889
+            }
+          },
+          {
+            "step": 1000,
+            "loss": 2.1880599191188814,
+            "seconds": 66.78888087510131,
+            "sha256": "02d50c4aaa5d58f59fe478449a727216b87275b375c83979cb1f168b6af7000a",
+            "selected": false,
+            "clean": {
+              "precision": 0.49624615384615384,
+              "recall": 0.26671958721968647,
+              "correct": 4032,
+              "matches": 8125,
+              "visible": 15117,
+              "coverage_8x6": 0.5458333333333333
+            },
+            "blur": {
+              "precision": 0.4099281515349445,
+              "recall": 0.20758086922008334,
+              "correct": 3138,
+              "matches": 7655,
+              "visible": 15117,
+              "coverage_8x6": 0.4753472222222222
+            }
+          }
+        ]
+      },
+      "2": {
+        "config": {
+          "manifest": "runs/geometric-comparison/dataset/manifest.csv",
+          "output": "runs/geometric-comparison/warp",
+          "xfeat_source": "runs/xfeat-upstream",
+          "checkpoint": "runs/xfeat-upstream/weights/xfeat.pt",
+          "device": "mps",
+          "train_detector": true,
+          "seeds": [
+            1,
+            2
+          ],
+          "steps": 1000,
+          "validate_every": 500,
+          "batch": 4,
+          "lr": 3e-05,
+          "width": 320,
+          "height": 320,
+          "max_blur": 11,
+          "geometric_pairs": "runs/geometric-comparison/dataset/pairs.csv",
+          "warp_supervision": true,
+          "validation_scenario": null,
+          "min_blur_gain": 0.01,
+          "max_clean_loss": 0.02
+        },
+        "seed": 2,
+        "torch": "2.15.0",
+        "opencv": "5.0.0",
+        "base_sha256": "0f5187fd7bedd26c7fe6acc9685444493a165a35ecc087b33c2db3627f3ea10b",
+        "xfeat_revision": "e92685f57f8318b18725c5c8c0bd28c7fe188d9a",
+        "teacher": "pinned XFeat on clean frames",
+        "reliability_target": "product of detached forward and reverse true-match probabilities",
+        "validation": [
+          {
+            "step": 0,
+            "clean": {
+              "precision": 0.5308891131292746,
+              "recall": 0.30122781347413957,
+              "correct": 4735,
+              "matches": 8919,
+              "visible": 15719,
+              "coverage_8x6": 0.5465277777777777
+            },
+            "blur": {
+              "precision": 0.4319237043543732,
+              "recall": 0.21897067243463325,
+              "correct": 3442,
+              "matches": 7969,
+              "visible": 15719,
+              "coverage_8x6": 0.4753472222222222
+            }
+          },
+          {
+            "step": 500,
+            "loss": 2.526549435853958,
+            "seconds": 33.74065695796162,
+            "sha256": "3a56d99217a5b9bfea0ee395780bc6dd3d9ffd1900223698066f89429ca99906",
+            "selected": false,
+            "clean": {
+              "precision": 0.49086674022312127,
+              "recall": 0.26060921634990886,
+              "correct": 4004,
+              "matches": 8157,
+              "visible": 15364,
+              "coverage_8x6": 0.5524305555555555
+            },
+            "blur": {
+              "precision": 0.40141955835962145,
+              "recall": 0.1987763603228326,
+              "correct": 3054,
+              "matches": 7608,
+              "visible": 15364,
+              "coverage_8x6": 0.4774305555555556
+            }
+          },
+          {
+            "step": 1000,
+            "loss": 2.16898459649086,
+            "seconds": 67.49904166697524,
+            "sha256": "40e8e1fdd0f470d798967b95d43d66c3969c57239a2eb92356c41e5a1c200feb",
+            "selected": false,
+            "clean": {
+              "precision": 0.49454590023287165,
+              "recall": 0.2658102766798419,
+              "correct": 4035,
+              "matches": 8159,
+              "visible": 15180,
+              "coverage_8x6": 0.546875
+            },
+            "blur": {
+              "precision": 0.4099556945530362,
+              "recall": 0.2072463768115942,
+              "correct": 3146,
+              "matches": 7674,
+              "visible": 15180,
+              "coverage_8x6": 0.47881944444444446
+            }
+          }
+        ]
+      }
+    }
+  }
+}

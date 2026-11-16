@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "name": "five-metre-north-pose-outlier",
+  "track": "pose_stream",
+  "seed": 1,
+  "fault": "outlier",
+  "offset_m": 5
+}

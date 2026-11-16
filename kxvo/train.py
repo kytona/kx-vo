@@ -107,7 +107,7 @@ def read_manifest(path, required_splits=("train", "validation")):
     return rows
 
 
-def evaluate_pairs(model, images, max_blur, seed=314):
+def evaluate_pairs(model, images, max_blur, seed=314, geometric=False):
     import torch
     result = {}
     model.eval()
@@ -117,12 +117,21 @@ def evaluate_pairs(model, images, max_blur, seed=314):
         correct = total = visible = occupied = 0
         with torch.inference_mode():
             for image in images:
-                a, b, warp = pair(image, rng, degraded, max_blur, blur_rng=blur_rng)
+                if geometric:
+                    a, b = image.first, image.second
+                    if degraded:
+                        b = motion_blur(b, blur_rng.integers(3, max_blur + 1), blur_rng.uniform(0, math.pi))
+                else:
+                    a, b, warp = pair(image, rng, degraded, max_blur, blur_rng=blur_rng)
                 left = model.detectAndCompute(a, top_k=400)[0]
                 right = model.detectAndCompute(b, top_k=400)[0]
                 xy = left["keypoints"].cpu().numpy()
-                target = project(xy, warp) if len(xy) else xy
-                valid = inside(target, image.shape[1], image.shape[0])
+                if geometric:
+                    target, supported = image.projection.visible(xy)
+                else:
+                    target = project(xy, warp) if len(xy) else xy
+                    supported = np.ones(len(xy), dtype=bool)
+                valid = inside(target, a.shape[1], a.shape[0]) & supported
                 visible += int(valid.sum())
                 if len(xy) and len(right["keypoints"]):
                     m, n = model.match(left["descriptors"], right["descriptors"], 0.75)
@@ -132,7 +141,7 @@ def evaluate_pairs(model, images, max_blur, seed=314):
                     total += int(valid[m].sum())
                     good = valid[m] & (dist <= 3)
                     correct += int(good.sum())
-                    grid = (xy[m[good]] * [8 / image.shape[1], 6 / image.shape[0]]).astype(int)
+                    grid = (xy[m[good]] * [8 / a.shape[1], 6 / a.shape[0]]).astype(int)
                     occupied += len(np.unique(grid, axis=0))
         result[name] = {"precision": correct / max(total, 1), "recall": correct / max(visible, 1),
                         "correct": correct, "matches": total, "visible": visible,
@@ -223,7 +232,7 @@ def validate_trajectory(args, output, checkpoint, step):
                            "manifest_sha256": report["manifest_sha256"]}}
 
 
-def train_seed(args, rows, seed):
+def train_seed(args, rows, seed, geometric=None):
     import torch
 
     torch.manual_seed(seed)
@@ -239,17 +248,25 @@ def train_seed(args, rows, seed):
                   "base_sha256": sha256(args.checkpoint), "xfeat_revision": XFEAT_REV, "manifest": manifest,
                   "teacher": "pinned XFeat on clean frames" if teacher else None,
                   "reliability_target": "product of detached forward and reverse true-match probabilities"}
+    if args.geometric_pairs:
+        provenance["geometric_pairs_sha256"] = sha256(args.geometric_pairs)
     (output / "provenance.json").write_text(json.dumps(provenance, indent=2) + "\n")
     # The fine matcher is outside the sparse pipeline.
     for name, parameter in model.net.named_parameters():
         if name.startswith("fine_matcher") or (not teacher and name.startswith("keypoint_head")):
             parameter.requires_grad_(False)
     opt = torch.optim.Adam([p for p in model.net.parameters() if p.requires_grad], lr=args.lr)
-    baseline = evaluate_pairs(model, paths["validation"], args.max_blur)
+    geometric_training = geometric is not None and not args.warp_supervision
+    validation = list(geometric["validation"].values()) if geometric else paths["validation"]
+    baseline = evaluate_pairs(model, validation, args.max_blur, geometric=bool(geometric))
     best = baseline["blur"]["recall"]
     baseline_trajectory = validate_trajectory(args, output, args.checkpoint, 0)
     (output / "validation.jsonl").write_text(json.dumps({"step": 0, **baseline, **baseline_trajectory}) + "\n")
-    save_validation_overlays(paths["validation"], args.max_blur, output)
+    if geometric:
+        from .geometric_pairs import save_overlays
+        save_overlays(geometric["validation"], output / "pair-overlays")
+    else:
+        save_validation_overlays(validation, args.max_blur, output)
     print(f"Seed {seed}, step 0: clean recall {baseline['clean']['recall']:.3f}, "
           f"blur recall {baseline['blur']['recall']:.3f}", flush=True)
     started = time.monotonic()
@@ -259,15 +276,28 @@ def train_seed(args, rows, seed):
         for child in model.net.modules():
             if isinstance(child, torch.nn.BatchNorm2d):
                 child.eval()
-        clean_batch = [paths["train"][i] for i in rng.integers(len(paths["train"]), size=args.batch)]
-        batch = [pair(image, rng, rng.random() < 0.7, args.max_blur, blur_both=rng.random() < 0.5)
-                 for image in clean_batch]
+        if geometric_training:
+            choices = list(geometric["train"].values())
+            chosen = [choices[i] for i in rng.integers(len(choices), size=args.batch)]
+            clean_batch = [sample.first for sample in chosen]
+            batch = []
+            for sample in chosen:
+                first, second = sample.first, sample.second
+                if rng.random() < 0.7:
+                    second = motion_blur(second, rng.integers(3, args.max_blur + 1), rng.uniform(0, math.pi))
+                    if rng.random() < 0.5:
+                        first = motion_blur(first, rng.integers(3, args.max_blur + 1), rng.uniform(0, math.pi))
+                batch.append((first, second, None))
+        else:
+            clean_batch = [paths["train"][i] for i in rng.integers(len(paths["train"]), size=args.batch)]
+            batch = [pair(image, rng, rng.random() < 0.7, args.max_blur, blur_both=rng.random() < 0.5)
+                     for image in clean_batch]
         a = torch.cat([image_tensor(row[0], args.device) for row in batch])
         b = torch.cat([image_tensor(row[1], args.device) for row in batch])
         features, logits, reliability = model.net(torch.cat([a, b]))
         losses = []
         for i, (_, _, warp) in enumerate(batch):
-            p, q = labelled_cells(warp, args.width, args.height)
+            p, q = chosen[i].cells if geometric_training else labelled_cells(warp, args.width, args.height)
             if len(p) >= 2:
                 idx = rng.choice(len(p), min(len(p), 256), replace=False)
                 p_sel = torch.as_tensor(p[idx], device=args.device)
@@ -276,9 +306,15 @@ def train_seed(args, rows, seed):
                 loss = correspondence_loss(features[i], features[other], reliability[i], reliability[other],
                                            p_sel, q_sel)
                 if teacher:
-                    left, right = detector_targets(teacher, clean_batch[i], warp)
+                    if geometric_training:
+                        left, _ = detector_targets(teacher, chosen[i].first, np.eye(3))
+                        right, _ = detector_targets(teacher, chosen[i].second, np.eye(3))
+                        inverse = None
+                    else:
+                        left, right = detector_targets(teacher, clean_batch[i], warp)
+                        inverse = np.linalg.inv(warp)
                     loss += 0.25 * (detector_loss(logits[i], left, rng) +
-                                    detector_loss(logits[other], right, rng, np.linalg.inv(warp)))
+                                    detector_loss(logits[other], right, rng, inverse))
                 losses.append(loss)
         if not losses:
             raise RuntimeError("No usable correspondences in training batch")
@@ -289,7 +325,7 @@ def train_seed(args, rows, seed):
         opt.step()
         interval_losses.append(loss.item())
         if step % args.validate_every == 0 or step == args.steps:
-            scores = evaluate_pairs(model, paths["validation"], args.max_blur)
+            scores = evaluate_pairs(model, validation, args.max_blur, geometric=bool(geometric))
             save = output / f"step-{step}.pt"
             torch.save(model.net.state_dict(), save)
             trajectory = validate_trajectory(args, output, save, step)
@@ -325,6 +361,8 @@ def main(argv=None):
     parser.add_argument("--width", type=int, default=320)
     parser.add_argument("--height", type=int, default=256)
     parser.add_argument("--max-blur", type=int, default=11)
+    parser.add_argument("--geometric-pairs", type=Path, help="TartanAir pairs.csv for depth/pose supervision")
+    parser.add_argument("--warp-supervision", action="store_true", help="Use homographies for training and score the same geometric validation pairs")
     parser.add_argument("--validation-scenario", type=Path,
                         help="Optional development-only kxbench replay scenario, scored at every validation")
     parser.add_argument("--min-blur-gain", type=float, default=0.01)
@@ -341,8 +379,18 @@ def main(argv=None):
     if len(set(args.seeds)) != len(args.seeds):
         parser.error("Use distinct seeds")
     rows = read_manifest(args.manifest)
+    geometric = None
+    if args.warp_supervision and not args.geometric_pairs:
+        parser.error("--warp-supervision requires --geometric-pairs")
+    if args.geometric_pairs:
+        from .geometric_pairs import load_pairs
+        geometric = load_pairs(args.geometric_pairs, args.width, args.height, ("train", "validation"))
+        for split, samples in geometric.items():
+            expected = {row["file"].resolve() for row in rows if row["split"] == split}
+            if set(samples) != expected:
+                parser.error(f"Geometric anchor images must match the {split} manifest split")
     for seed in args.seeds:
-        train_seed(args, rows, seed)
+        train_seed(args, rows, seed, geometric)
 
 
 if __name__ == "__main__":
