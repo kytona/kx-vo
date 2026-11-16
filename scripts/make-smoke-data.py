@@ -17,6 +17,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path)
     parser.add_argument("--width", type=int, default=320)
+    parser.add_argument("--scene-seed", type=int, default=12)
+    parser.add_argument("--sensor-seed", type=int, default=8)
     args = parser.parse_args()
     root = args.output
     root.mkdir(parents=True, exist_ok=False)
@@ -35,7 +37,8 @@ def main():
         run = Recorder(root / ("blur" if degraded else "clean"))
         last_yaw = None
         try:
-            for sample in simulate(duration=24, cam=camera, room=Room(seed=12), seed=8):
+            for sample in simulate(duration=24, cam=camera, room=Room(seed=args.scene_seed),
+                                   seed=args.sensor_seed):
                 yaw = rot_to_euler(sample.R_WB)[2]
                 image = sample.image
                 if degraded and last_yaw is not None and 6 <= sample.t % 8 < 7:

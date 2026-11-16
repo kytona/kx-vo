@@ -38,6 +38,10 @@ uv venv .venv && uv pip install --python .venv/bin/python -e ".[test]"
 .venv/bin/kxvo synth --seeds 5         # the benchmark above
 ```
 
+## Replay benchmark quickstart
+
+After installing the package, run `kxbench quickstart runs/demo`. It generates a synthetic clip, a versioned JSON scenario and a scorecard. To run the same case again, use `kxbench run runs/demo/scenario.json --output runs/demo-repeat`. The scorecard records the inputs, coverage, position error and verdict. A run passes when it meets the manifest limits, fails when valid inputs produce insufficient pose coverage or excess error, and is invalid when the inputs or runner prevent evaluation.
+
 ## Hardware path
 
 ```
@@ -89,7 +93,17 @@ scripts/run-tartanair-xfeat.sh runs/my-tartanair mps
 
 Use `cpu` or `cuda` in place of `mps` where applicable. Add `3` as the third argument for a smoke run. The [pinned route plan](experiments/tartanair-xfeat.json) selects 1,000 training frames, 200 validation frames and 200 test frames. The downloader fetches ZIP ranges for the selected PNGs from the official mirror. Allow roughly 1 GB of transfer and storage for the subset. Route membership, camera, source revision, rights and image hashes are recorded in the dataset manifest. TartanAir publishes the dataset under [CC BY 4.0](https://tartanair.org/).
 
-The script starts two independent seeds from the official checkpoint, uses the same 200 validation images for checkpoint selection, and then compares the two frozen candidates and pretrained XFeat on the held-out school scene. Each model sees identical labelled warps. A final checkpoint from a seed that misses the validation criteria is reported as a diagnostic only. The output includes per-seed provenance, weights, validation curves and `held-out.json`. These scores measure synthetic warp matching. Use the MegaDepth and ArduPilot sections below for general matching and closed-loop checks with the same weights.
+The script starts two independent seeds from the official checkpoint and runs 1,500 steps per seed by default. Validation uses identical clean and blurred warps on the same 200 images. A selected checkpoint must improve blurred recall by at least one percentage point, stay within two points of clean recall and preserve blurred spatial coverage. It writes per-seed weights, provenance and validation curves. For runs using a separate development recording, pass `--validation-scenario` to `python -m kxvo.train` to score its trajectory at step zero and each saved checkpoint.
+
+Run the evaluation explicitly once the recipe and checkpoints are frozen:
+
+```sh
+scripts/evaluate-tartanair-xfeat.sh runs/my-tartanair mps
+```
+
+The evaluator runs the held-out matches, three seeded MegaDepth solver passes, three paired synthetic replay fixtures, and native ArduPilot fallback scenarios. Set the third argument to `matches`, `replay`, or `sitl` for a single stage. The full evaluation needs the MegaDepth dataset and an ArduCopter SITL build. Experimental checkpoints that missed validation can be included by setting `KXVO_DIAGNOSTIC_FINAL=1`. Keep those outputs labelled as diagnostics.
+
+Use `python -m kxvo.tartanair --plan experiments/tartanair-xfeat.json --output runs/datasets/tartanair-geometry --neighbor-offset 2` to obtain nearby RGB frames, both depth maps, camera intrinsics and trajectory poses. The resulting `pairs.csv` can feed a geometry-based experiment. Interrupted downloads can resume with the same command. The downloader checks cached members against the pinned archive's CRC before reusing them.
 
 Start with a synthetic smoke test. It checks the code path from the official checkpoint through training and validation to a reloadable model.
 
@@ -103,7 +117,7 @@ OMP_NUM_THREADS=2 .venv/bin/python -m kxvo.train \
 
 For the actual experiment, supply a CSV with `path,split,group,rights` and add camera/calibration and capture provenance columns. Paths are relative to the manifest. Assign whole flight sessions to train, validation and test. Pick dimensions divisible by 32 that preserve the capture aspect ratio. Start with two seeds, use `--device cuda` on a rented CUDA machine if needed, and save the validation logs and selected checkpoint for each seed. A seed can legitimately have no selected checkpoint if it fails the clean-recall or blur-improvement check.
 
-The default training recipe updates the descriptor backbone with known warp correspondences. Add `--train-detector` to train the keypoint head using clean detections from the pinned XFeat teacher projected into the warped view. Training includes clean pairs and blur on one or both images. Keep descriptor-only and detector-training results labelled separately.
+The default training recipe updates the descriptor backbone and reliability head with known warp correspondences. Add `--train-detector` to train the keypoint head using clean detections from the pinned XFeat teacher projected into the warped view. Training includes clean pairs and blur on one or both images. Record whether detector training was enabled.
 
 ### Replay and score
 

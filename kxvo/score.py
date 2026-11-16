@@ -23,16 +23,18 @@ def load_reference(path):
                      for r in map(json.loads, path.read_text().splitlines()) if "truth_p" in r])
 
 
-def tracking_health(records):
+def tracking_health(records, max_frame_gap=0.2):
     t = np.array([row["t"] for row in records])
+    if not np.isfinite(max_frame_gap) or max_frame_gap <= 0:
+        raise ValueError("Frame gap threshold must be finite and positive")
     if len(t) < 2 or not np.isfinite(t).all() or np.any(np.diff(t) <= 0):
         raise ValueError("Need at least two finite, strictly increasing replay timestamps")
     valid = np.array([bool(row["valid"]) for row in records])
     valid_indices = np.flatnonzero(valid)
     # Timestamp gaps describe coverage only between the first and last logged samples.
     durations = np.diff(t)
-    sums = np.r_[0, np.cumsum(durations[~valid[:-1]])]
-    intervals = np.flatnonzero(~valid[:-1])
+    intervals = np.flatnonzero(~valid[:-1] | (durations > max_frame_gap))
+    sums = np.r_[0, np.cumsum(durations[intervals])]
     boundaries = np.r_[0, np.flatnonzero(np.diff(intervals) > 1) + 1, len(intervals)]
     outages = np.diff(sums[boundaries])
     metrics = {"frames": len(t), "valid_frames": int(valid.sum()),
@@ -40,6 +42,9 @@ def tracking_health(records):
                "initialization_s": float(t[valid_indices[0]] - t[0]) if len(valid_indices) else None,
                "unavailable_s": float(sums[-1]),
                "longest_unavailable_s": float(outages.max(initial=0)),
+               "outage_count": int((outages > max_frame_gap).sum()),
+               "outage_s": float(outages[outages > max_frame_gap].sum()),
+               "max_frame_gap_s": max_frame_gap,
                "reset_changes": sum(a.get("reset", 0) != b.get("reset", 0)
                                     for a, b in zip(records, records[1:]))}
     ms = [row["processing_ms"] for row in records if row.get("processing_ms") is not None]
@@ -48,36 +53,24 @@ def tracking_health(records):
     return metrics
 
 
-def score(records, ref, alignment_seconds=1.0, window=5.0, max_ref_gap=0.15, alignment_start=None):
+def score(records, ref, alignment_seconds=1.0, window=5.0, max_ref_gap=0.15, alignment_start=None,
+          max_frame_gap=0.2):
     t = np.array([r["t"] for r in records])
-    if len(t) < 2 or len(ref) < 2 or not np.isfinite(ref).all() or np.any(np.diff(t) <= 0) or np.any(np.diff(ref[:, 0]) <= 0):
+    result = tracking_health(records, max_frame_gap)
+    if len(ref) < 2 or not np.isfinite(ref).all() or np.any(np.diff(t) <= 0) or np.any(np.diff(ref[:, 0]) <= 0):
         raise ValueError("Need strictly increasing estimate and reference timestamps with finite ground truth")
     indices = np.searchsorted(ref[:, 0], t, side="right")
     lo, hi = np.maximum(indices - 1, 0), np.minimum(indices, len(ref) - 1)
     covered = ((t >= ref[0, 0]) & (t <= ref[-1, 0])
-               & (ref[hi, 0] - ref[lo, 0] <= max_ref_gap))
+               & ((t == ref[lo, 0]) | (ref[hi, 0] - ref[lo, 0] <= max_ref_gap)))
     valid = covered & np.array([bool(r["valid"]) for r in records])
     truth = np.column_stack([np.interp(t, ref[:, 0], ref[:, i]) for i in (1, 2)])
     truth_yaw = np.interp(t, ref[:, 0], np.unwrap(ref[:, 4]))
     estimate = np.array([r["p"][:2] for r in records])
     yaw = np.array([r["rpy"][2] for r in records])
-    accepted = np.flatnonzero(valid)
-    result = {"frames": len(t), "reference_covered_frames": int(covered.sum()),
-              "valid_covered_frames": int(valid.sum()), "reset_changes": sum(
-                  a.get("reset", 0) != b.get("reset", 0) for a, b in zip(records, records[1:])),
-              "initialization_s": float(t[accepted[0]] - t[0]) if len(accepted) else None}
-    ms = [r["processing_ms"] for r in records if r.get("processing_ms") is not None]
-    if ms:
-        result["processing_ms_p50_p95"] = np.percentile(ms, [50, 95]).tolist()
-    if not len(accepted):
+    result.update(reference_covered_frames=int(covered.sum()), valid_covered_frames=int(valid.sum()))
+    if not valid.any():
         return result, None
-    start = t[accepted[0]]
-    # Count tracker outages from estimator status independently of reference gaps.
-    healthy = np.flatnonzero([r["valid"] for r in records])
-    gaps = np.diff(np.r_[t[healthy], t[-1]])
-    outages = gaps[gaps > 0.2]
-    result.update(outage_count=len(outages), outage_s=float(outages.sum()),
-                  unavailable_s=float(np.diff(t)[~np.array([r["valid"] for r in records[:-1]], bool)].sum()))
     fit_start = ref[0, 0] + 1 if alignment_start is None else alignment_start
     fit = valid & (t >= fit_start) & (t <= fit_start + alignment_seconds)
     use = valid & (t > fit_start + alignment_seconds)
@@ -102,7 +95,9 @@ def score(records, ref, alignment_seconds=1.0, window=5.0, max_ref_gap=0.15, ali
     i = eligible[partners < len(t)]
     j = partners[partners < len(t)]
     resets = np.array([r.get("reset", 0) for r in records])
-    pairs = use[j] & (resets[i] == resets[j]) & (t[j] - t[i] <= window + 0.1)
+    interrupted = (~valid[:-1] | ~valid[1:] | (np.diff(t) > max_frame_gap) | (np.diff(resets) != 0))
+    segments = np.r_[0, np.cumsum(interrupted)]
+    pairs = use[j] & (segments[i] == segments[j]) & (t[j] - t[i] <= window + 0.1)
     i, j = i[pairs], j[pairs]
     result["relative_pairs"] = len(i)
     if len(i):
@@ -120,6 +115,7 @@ def main(argv=None):
     parser.add_argument("--alignment-seconds", type=float, default=1)
     parser.add_argument("--alignment-start", type=float, help="Start of the fixed clean window in the reference clock")
     parser.add_argument("replays", nargs="+", type=Path)
+    parser.add_argument("--max-frame-gap", type=float, default=0.2, help="Count longer sample gaps as unavailable")
     args = parser.parse_args(argv)
     if args.plot and args.reference is None:
         parser.error("--plot requires --reference")
@@ -132,10 +128,10 @@ def main(argv=None):
     for path in args.replays:
         records = [r for r in map(json.loads, path.read_text().splitlines()) if "p" in r]
         if reference is None:
-            results[str(path)] = tracking_health(records)
+            results[str(path)] = tracking_health(records, args.max_frame_gap)
             continue
         metrics, trajectory = score(records, reference, alignment_seconds=args.alignment_seconds,
-                                    alignment_start=args.alignment_start)
+                                    alignment_start=args.alignment_start, max_frame_gap=args.max_frame_gap)
         results[str(path)] = metrics
         if args.plot and trajectory is not None:
             ax.plot(trajectory[1][:, 1], trajectory[1][:, 0], label=path.stem)

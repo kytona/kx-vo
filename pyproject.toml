@@ -20,6 +20,7 @@ sitl = ["empy==3.3.4", "pexpect", "future"]
 
 [project.scripts]
 kxvo = "kxvo.cli:main"
+kxbench = "kxvo.scenario:main"
 
 [tool.setuptools]
 packages = ["kxvo"]

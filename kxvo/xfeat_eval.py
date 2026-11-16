@@ -8,7 +8,7 @@ from .trackers import load_xfeat, sha256
 from .train import evaluate_pairs, load_images, read_manifest
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--checkpoint", type=Path, nargs="+", required=True)
@@ -19,13 +19,11 @@ def main():
     parser.add_argument("--max-blur", type=int, default=11)
     parser.add_argument("--seed", type=int, default=2718)
     parser.add_argument("--output", type=Path, required=True)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     if min(args.width, args.height) < 32 or args.width % 32 or args.height % 32 or args.max_blur < 3:
         parser.error("Use dimensions divisible by 32 and max blur >= 3")
-    rows = read_manifest(args.manifest)
+    rows = read_manifest(args.manifest, required_splits=("test",))
     images = load_images(rows, ("test",), args.width, args.height)["test"]
-    if not images:
-        parser.error("The manifest has no test frames")
     models = []
     for checkpoint in args.checkpoint:
         model = load_xfeat(args.xfeat_source, checkpoint, args.device)

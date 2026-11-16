@@ -2,6 +2,8 @@
 
 ## TartanAir V2 fine-tuning
 
+The [review correction](tartanair-xfeat-review/README.md) documents defects in the original recipe, the corrected training results and three paired baseline replays.
+
 Two 500-step runs trained on 1,000 public TartanAir V2 frames. Both improved blurred-pair validation recall by less than one percentage point and regressed on the held-out school scene. Both also lost roughly eight AUC points on MegaDepth-1500 and increased trajectory error against pretrained XFeat on the clean and blurred room replays. Pretrained XFeat remains the learned reference.
 
 - [Experimental checkpoint model card](tartanair-xfeat/MODEL-CARD.md)

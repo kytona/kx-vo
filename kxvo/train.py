@@ -37,16 +37,17 @@ def motion_blur(image, length, angle):
     return cv2.filter2D(image, -1, kernel / kernel.sum())
 
 
-def pair(image, rng, blur, max_blur, blur_both=False):
+def pair(image, rng, blur, max_blur, blur_both=False, blur_rng=None):
     h, w = image.shape
     corners = np.float32([[0, 0], [w - 1, 0], [w - 1, h - 1], [0, h - 1]])
     shift = rng.uniform(-0.06, 0.06, (4, 2)) * [w, h]
     warp = cv2.getPerspectiveTransform(corners, (corners + shift).astype(np.float32))
     second = cv2.warpPerspective(image, warp, (w, h))
     if blur:
-        second = motion_blur(second, rng.integers(3, max_blur + 1), rng.uniform(0, math.pi))
+        blur_rng = rng if blur_rng is None else blur_rng
+        second = motion_blur(second, blur_rng.integers(3, max_blur + 1), blur_rng.uniform(0, math.pi))
         if blur_both:
-            image = motion_blur(image, rng.integers(3, max_blur + 1), rng.uniform(0, math.pi))
+            image = motion_blur(image, blur_rng.integers(3, max_blur + 1), blur_rng.uniform(0, math.pi))
     return image, second, warp
 
 
@@ -66,7 +67,7 @@ def image_tensor(image, device):
     return torch.as_tensor(image.copy(), dtype=torch.float32, device=device)[None, None] / 255
 
 
-def descriptor_loss(first, second, a, b):
+def correspondence_loss(first, second, reliability_a, reliability_b, a, b):
     import torch
     from torch.nn import functional as F
     # Bidirectional correspondence classification as in upstream XFeat.
@@ -74,10 +75,16 @@ def descriptor_loss(first, second, a, b):
     y = second[:, b[:, 1], b[:, 0]].T
     logits = (x @ y.T) * 0.2
     target = torch.arange(len(a), device=logits.device)
-    return F.cross_entropy(logits, target) + F.cross_entropy(logits.T, target)
+    descriptor = F.cross_entropy(logits, target) + F.cross_entropy(logits.T, target)
+    with torch.no_grad():
+        # Use probability of the known match in each direction.
+        confidence = logits.softmax(dim=1).diagonal() * logits.softmax(dim=0).diagonal()
+    reliability = (F.l1_loss(reliability_a[0, a[:, 1], a[:, 0]], confidence)
+                   + F.l1_loss(reliability_b[0, b[:, 1], b[:, 0]], confidence))
+    return descriptor + 3.0 * reliability
 
 
-def read_manifest(path):
+def read_manifest(path, required_splits=("train", "validation")):
     with path.open(newline="") as stream:
         rows = list(csv.DictReader(stream))
     groups, hashes = {}, {}
@@ -94,7 +101,7 @@ def read_manifest(path):
         row["sha256"] = digest
         if hashes.setdefault(row["sha256"], split) != split:
             raise ValueError(f"Identical image crosses splits: {row['path']}")
-    for split in ("train", "validation"):
+    for split in required_splits:
         if not any(row["split"] == split for row in rows):
             raise ValueError(f"No {split} images")
     return rows
@@ -106,10 +113,11 @@ def evaluate_pairs(model, images, max_blur, seed=314):
     model.eval()
     for name, degraded in (("clean", False), ("blur", True)):
         rng = np.random.default_rng(seed)
-        correct = total = visible = 0
+        blur_rng = np.random.default_rng(seed + 1)
+        correct = total = visible = occupied = 0
         with torch.inference_mode():
             for image in images:
-                a, b, warp = pair(image, rng, degraded, max_blur)
+                a, b, warp = pair(image, rng, degraded, max_blur, blur_rng=blur_rng)
                 left = model.detectAndCompute(a, top_k=400)[0]
                 right = model.detectAndCompute(b, top_k=400)[0]
                 xy = left["keypoints"].cpu().numpy()
@@ -122,9 +130,13 @@ def evaluate_pairs(model, images, max_blur, seed=314):
                     n = n.cpu().numpy()
                     dist = np.linalg.norm(right["keypoints"].cpu().numpy()[n] - target[m], axis=1)
                     total += int(valid[m].sum())
-                    correct += int((valid[m] & (dist <= 3)).sum())
+                    good = valid[m] & (dist <= 3)
+                    correct += int(good.sum())
+                    grid = (xy[m[good]] * [8 / image.shape[1], 6 / image.shape[0]]).astype(int)
+                    occupied += len(np.unique(grid, axis=0))
         result[name] = {"precision": correct / max(total, 1), "recall": correct / max(visible, 1),
-                        "correct": correct, "matches": total, "visible": visible}
+                        "correct": correct, "matches": total, "visible": visible,
+                        "coverage_8x6": occupied / (48 * max(len(images), 1))}
     return result
 
 
@@ -133,8 +145,9 @@ def save_validation_overlays(images, max_blur, output):
     directory = output / "pair-overlays"
     directory.mkdir()
     rng = np.random.default_rng(314)
+    blur_rng = np.random.default_rng(315)
     for index, image in enumerate(images[:20]):
-        a, b, warp = pair(image, rng, True, max_blur)
+        a, b, warp = pair(image, rng, True, max_blur, blur_rng=blur_rng)
         h, w = a.shape
         x, y = np.meshgrid(np.arange(12, w - 4, 24), np.arange(12, h - 4, 24))
         left = np.column_stack((x.ravel(), y.ravel()))
@@ -151,23 +164,28 @@ def save_validation_overlays(images, max_blur, output):
 
 def detector_targets(teacher, clean, warp):
     """Use clean pretrained detections as pseudo-labels in both warped views."""
-    points = teacher.detectAndCompute(clean, top_k=300)[0]["keypoints"].cpu().numpy()
+    points = teacher.detectAndCompute(clean, top_k=clean.size)[0]["keypoints"].cpu().numpy()
     return points, project(points, warp) if len(points) else points
 
 
-def detector_loss(logits, points, rng):
+def detector_loss(logits, points, rng, inverse_warp=None):
     import torch
     from torch.nn.functional import cross_entropy
 
     _, h, w = logits.shape
     xy = np.rint(points).astype(int)
-    xy = xy[inside(xy, w * 8, h * 8)]
+    xy = xy[inside(xy, w * 8, h * 8, border=0)]
     if not len(xy):
         return logits.sum() * 0
     cells = (xy[:, 1] // 8) * w + xy[:, 0] // 8
     positives, first = np.unique(cells, return_index=True)
     labels = (xy[first, 1] % 8) * 8 + xy[first, 0] % 8
     empty = np.setdiff1d(np.arange(h * w), positives)
+    if inverse_warp is not None and len(empty):
+        corners = (np.column_stack((empty % w, empty // w))[:, None] * 8
+                   + [[0, 0], [0, 7], [7, 0], [7, 7]])
+        supported = inside(project(corners, inverse_warp), w * 8, h * 8).reshape(-1, 4)
+        empty = empty[supported.all(axis=1)]
     negatives = rng.choice(empty, min(len(empty), max(1, len(positives) // 8)), replace=False)
     indices = np.r_[positives, negatives]
     labels = np.r_[labels, np.full(len(negatives), 64)]
@@ -192,6 +210,19 @@ def load_images(rows, splits, width, height):
     return images
 
 
+def validate_trajectory(args, output, checkpoint, step):
+    if args.validation_scenario is None:
+        return {}
+    from .scenario import run
+    directory = output / f"trajectory-{step}"
+    exit_code = run(args.validation_scenario, directory, "xfeat", checkpoint, args.device)
+    report = json.loads((directory / "score.json").read_text())
+    if exit_code == 2:
+        raise ValueError(f"Invalid development trajectory: {report['reason']}")
+    return {"trajectory": {"verdict": report["verdict"], "metrics": report["metrics"],
+                           "manifest_sha256": report["manifest_sha256"]}}
+
+
 def train_seed(args, rows, seed):
     import torch
 
@@ -206,16 +237,18 @@ def train_seed(args, rows, seed):
     config = {k: str(v) if isinstance(v, Path) else v for k, v in vars(args).items()}
     provenance = {"config": config, "seed": seed, "torch": torch.__version__, "opencv": cv2.__version__,
                   "base_sha256": sha256(args.checkpoint), "xfeat_revision": XFEAT_REV, "manifest": manifest,
-                  "teacher": "pinned XFeat on clean frames" if teacher else "none; descriptor-only ablation"}
+                  "teacher": "pinned XFeat on clean frames" if teacher else None,
+                  "reliability_target": "product of detached forward and reverse true-match probabilities"}
     (output / "provenance.json").write_text(json.dumps(provenance, indent=2) + "\n")
-    # Freeze the reliability head and fine matcher. Train the detector only with teacher labels.
+    # The fine matcher is outside the sparse pipeline.
     for name, parameter in model.net.named_parameters():
-        if name.startswith(("heatmap_head", "fine_matcher")) or (not teacher and name.startswith("keypoint_head")):
+        if name.startswith("fine_matcher") or (not teacher and name.startswith("keypoint_head")):
             parameter.requires_grad_(False)
     opt = torch.optim.Adam([p for p in model.net.parameters() if p.requires_grad], lr=args.lr)
     baseline = evaluate_pairs(model, paths["validation"], args.max_blur)
     best = baseline["blur"]["recall"]
-    (output / "validation.jsonl").write_text(json.dumps({"step": 0, **baseline}) + "\n")
+    baseline_trajectory = validate_trajectory(args, output, args.checkpoint, 0)
+    (output / "validation.jsonl").write_text(json.dumps({"step": 0, **baseline, **baseline_trajectory}) + "\n")
     save_validation_overlays(paths["validation"], args.max_blur, output)
     print(f"Seed {seed}, step 0: clean recall {baseline['clean']['recall']:.3f}, "
           f"blur recall {baseline['blur']['recall']:.3f}", flush=True)
@@ -231,7 +264,7 @@ def train_seed(args, rows, seed):
                  for image in clean_batch]
         a = torch.cat([image_tensor(row[0], args.device) for row in batch])
         b = torch.cat([image_tensor(row[1], args.device) for row in batch])
-        features, logits, _ = model.net(torch.cat([a, b]))
+        features, logits, reliability = model.net(torch.cat([a, b]))
         losses = []
         for i, (_, _, warp) in enumerate(batch):
             p, q = labelled_cells(warp, args.width, args.height)
@@ -239,11 +272,13 @@ def train_seed(args, rows, seed):
                 idx = rng.choice(len(p), min(len(p), 256), replace=False)
                 p_sel = torch.as_tensor(p[idx], device=args.device)
                 q_sel = torch.as_tensor(q[idx], device=args.device)
-                loss = descriptor_loss(features[i], features[i + len(batch)], p_sel, q_sel)
+                other = i + len(batch)
+                loss = correspondence_loss(features[i], features[other], reliability[i], reliability[other],
+                                           p_sel, q_sel)
                 if teacher:
                     left, right = detector_targets(teacher, clean_batch[i], warp)
                     loss += 0.25 * (detector_loss(logits[i], left, rng) +
-                                    detector_loss(logits[i + len(batch)], right, rng))
+                                    detector_loss(logits[other], right, rng, np.linalg.inv(warp)))
                 losses.append(loss)
         if not losses:
             raise RuntimeError("No usable correspondences in training batch")
@@ -257,14 +292,17 @@ def train_seed(args, rows, seed):
             scores = evaluate_pairs(model, paths["validation"], args.max_blur)
             save = output / f"step-{step}.pt"
             torch.save(model.net.state_dict(), save)
+            trajectory = validate_trajectory(args, output, save, step)
             selected = (scores["blur"]["recall"] > best
-                        and scores["clean"]["recall"] >= baseline["clean"]["recall"] - 0.05)
+                        and scores["blur"]["recall"] >= baseline["blur"]["recall"] + args.min_blur_gain
+                        and scores["clean"]["recall"] >= baseline["clean"]["recall"] - args.max_clean_loss
+                        and scores["blur"]["coverage_8x6"] >= baseline["blur"]["coverage_8x6"])
             if selected:
                 best = scores["blur"]["recall"]
                 (output / "selected.json").write_text(json.dumps({"checkpoint": save.name, "sha256": sha256(save)}) + "\n")
             with (output / "validation.jsonl").open("a") as log:
                 log.write(json.dumps({"step": step, "loss": float(np.mean(interval_losses)), "seconds": time.monotonic() - started,
-                                      "sha256": sha256(save), "selected": selected, **scores}) + "\n")
+                                      "sha256": sha256(save), "selected": selected, **scores, **trajectory}) + "\n")
             print(f"Seed {seed}, step {step}: loss {np.mean(interval_losses):.3f}, "
                   f"clean recall {scores['clean']['recall']:.3f}, blur recall {scores['blur']['recall']:.3f}, "
                   f"selected {selected}, {time.monotonic() - started:.1f}s", flush=True)
@@ -287,7 +325,13 @@ def main(argv=None):
     parser.add_argument("--width", type=int, default=320)
     parser.add_argument("--height", type=int, default=256)
     parser.add_argument("--max-blur", type=int, default=11)
+    parser.add_argument("--validation-scenario", type=Path,
+                        help="Optional development-only kxbench replay scenario, scored at every validation")
+    parser.add_argument("--min-blur-gain", type=float, default=0.01)
+    parser.add_argument("--max-clean-loss", type=float, default=0.02)
     args = parser.parse_args(argv)
+    if not 0 < args.min_blur_gain <= 1 or not 0 <= args.max_clean_loss <= 1:
+        parser.error("Selection tolerances must be recall fractions in range")
     if min(args.steps, args.batch, args.validate_every) < 1 or args.max_blur < 3 or args.lr <= 0:
         parser.error("Use positive training parameters and max blur >= 3")
     if min(args.width, args.height) < 32 or args.width % 32 or args.height % 32:

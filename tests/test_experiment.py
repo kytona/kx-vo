@@ -145,9 +145,110 @@ def test_tracking_health_counts_unavailable_time_without_reference():
     rows = [{"t": t, "valid": valid, "reset": reset, "processing_ms": 4}
             for t, valid, reset in [(0, False, 0), (0.2, True, 0), (0.5, False, 1),
                                     (0.9, False, 1), (1.5, True, 1), (2, True, 1)]]
-    metrics = tracking_health(rows)
+    metrics = tracking_health(rows, max_frame_gap=1.0)
     assert metrics["valid_frames"] == 3
     assert metrics["initialization_s"] == pytest.approx(0.2)
     assert metrics["unavailable_s"] == pytest.approx(1.2)
     assert metrics["longest_unavailable_s"] == pytest.approx(1.0)
     assert metrics["reset_changes"] == 1
+
+
+def test_tracking_health_counts_gap_between_valid_frames():
+    from kxvo.score import tracking_health
+    rows = [{"t": t, "valid": True} for t in [0, 0.05, 0.9, 0.95]]
+    metrics = tracking_health(rows, max_frame_gap=0.2)
+    assert metrics["outage_count"] == 1
+    assert metrics["longest_unavailable_s"] == pytest.approx(0.85)
+
+
+def test_warp_stream_is_shared_between_clean_and_blur():
+    image = np.random.default_rng(9).integers(256, size=(64, 64), dtype=np.uint8)
+    clean_rng = np.random.default_rng(10)
+    degraded_rng = np.random.default_rng(10)
+    blur_rng = np.random.default_rng(11)
+    for _ in range(4):
+        _, _, clean_transform = pair(image, clean_rng, False, 11)
+        _, _, degraded_transform = pair(image, degraded_rng, True, 11, blur_rng=blur_rng)
+        np.testing.assert_array_equal(clean_transform, degraded_transform)
+
+
+def test_held_out_cli_accepts_test_only_manifest(tmp_path, monkeypatch):
+    from kxvo import xfeat_eval
+    cv2.imwrite(str(tmp_path / "frame.png"), np.zeros((32, 32), dtype=np.uint8))
+    manifest = tmp_path / "manifest.csv"
+    manifest.write_text("path,split,group,rights\nframe.png,test,separate,own\n")
+    checkpoint = tmp_path / "checkpoint.pt"
+    checkpoint.write_bytes(b"checkpoint")
+    output = tmp_path / "scores.json"
+    monkeypatch.setattr(xfeat_eval, "load_xfeat", lambda *args: object())
+    monkeypatch.setattr(xfeat_eval, "evaluate_pairs", lambda *args, **kwargs: {
+        "clean": {"recall": 0.5}, "blur": {"recall": 0.4},
+    })
+    xfeat_eval.main(["--manifest", str(manifest), "--checkpoint", str(checkpoint), "--output", str(output)])
+    result = json.loads(output.read_text())
+    assert result["frames"] == 1
+    assert result["groups"] == ["separate"]
+
+
+def test_archive_member_resume_reuses_only_crc_verified_files(tmp_path):
+    from io import BytesIO
+    from zipfile import ZipFile
+    from kxvo.tartanair import extract_members
+
+    payload = BytesIO()
+    with ZipFile(payload, "w") as archive:
+        archive.writestr("one.png", b"one")
+        archive.writestr("two.png", b"two")
+
+    class InterruptedArchive(BytesIO):
+        size = len(payload.getvalue())
+        transferred = 0
+        attempts = 0
+
+        def fetch(self, start, end):
+            self.attempts += 1
+            if self.attempts == 2:
+                raise OSError("interrupted")
+            return self.getvalue()[start:end + 1], start, self.size
+
+    remote = InterruptedArchive(payload.getvalue())
+    with ZipFile(remote) as archive:
+        entries = [(info, tmp_path / info.filename) for info in archive.infolist()]
+        with pytest.raises(OSError, match="interrupted"):
+            extract_members(remote, archive, entries, 1)
+        assert (tmp_path / "one.png").read_bytes() == b"one"
+        assert not (tmp_path / "two.png").exists()
+        assert len(extract_members(remote, archive, entries, 1)) == 2
+        assert remote.attempts == 3
+        (tmp_path / "two.png").write_bytes(b"bad")
+        extract_members(remote, archive, entries, 1)
+        assert remote.attempts == 4
+        assert (tmp_path / "two.png").read_bytes() == b"two"
+
+
+def test_correspondence_loss_updates_reliability_maps():
+    torch = pytest.importorskip("torch")
+    from kxvo.train import correspondence_loss
+
+    features = torch.zeros((2, 2, 2), requires_grad=True)
+    reliability = torch.full((1, 2, 2), 0.5, requires_grad=True)
+    cells = torch.tensor([[0, 0], [1, 1]])
+    correspondence_loss(features, features, reliability, reliability, cells, cells).backward()
+    assert reliability.grad[0, 0, 0] > 0
+    assert reliability.grad[0, 1, 1] > 0
+    assert reliability.grad[0, 1, 0] == 0
+
+
+def test_teacher_requests_all_detections_for_negative_mask():
+    torch = pytest.importorskip("torch")
+    from kxvo.train import detector_targets
+
+    points = np.column_stack(np.unravel_index(np.arange(400), (64, 64))).astype(np.float32)
+
+    class Teacher:
+        def detectAndCompute(self, clean, top_k):
+            return [{"keypoints": torch.from_numpy(points[:top_k])}]
+
+    first, second = detector_targets(Teacher(), np.zeros((64, 64), dtype=np.uint8), np.eye(3))
+    np.testing.assert_array_equal(first, points)
+    np.testing.assert_array_equal(second, points)

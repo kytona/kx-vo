@@ -4,6 +4,8 @@ These are two experimental sparse XFeat checkpoints for reproducing a visual odo
 
 Both checkpoints passed one native ArduPilot SITL fallback case. Both regressed against pretrained XFeat on the held-out TartanAir school, MegaDepth-1500, and clean and blurred room replays. Pretrained XFeat remains the recommended reference for this experiment. These checkpoints have simulation and replay evidence only. [Correspondence scores](held-out.json) · [SITL evidence](sitl.json)
 
+The [review correction](../tartanair-xfeat-review/README.md) documents trainer defects that confound attribution of the original regression.
+
 The files are PyTorch state dictionaries for the pinned XFeat architecture. Use them with the repository’s `--tracker xfeat --checkpoint PATH` option or the matching evaluator. Verify the download with `shasum -a 256 -c SHA256SUMS`.
 
 | Release asset | SHA-256 |

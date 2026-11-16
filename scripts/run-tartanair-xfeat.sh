@@ -8,7 +8,7 @@ if [[ $# -lt 1 || $# -gt 3 ]]; then
 fi
 output=$1
 device=${2:-cpu}
-steps=${3:-500}
+steps=${3:-1500}
 python=${KXVO_PYTHON:-.venv/bin/python}
 dataset=runs/datasets/tartanair-xfeat
 checkpoint=runs/xfeat-upstream/weights/xfeat.pt
@@ -20,18 +20,4 @@ if [[ ! -f "$dataset/manifest.csv" ]]; then
 fi
 "$python" -m kxvo.train --manifest "$dataset/manifest.csv" --output "$output" \
     --checkpoint "$checkpoint" --device "$device" --width 320 --height 320 \
-    --train-detector --seeds 1 2 --steps "$steps" --validate-every 250
-
-candidates=("$checkpoint")
-for seed in 1 2; do
-    folder="$output/seed-$seed"
-    if [[ -f "$folder/selected.json" ]]; then
-        name=$("$python" -c 'import json, sys; print(json.load(open(sys.argv[1]))["checkpoint"])' "$folder/selected.json")
-        candidates+=("$folder/$name")
-    else
-        echo "Seed $seed did not meet validation selection. Evaluating its final step for diagnosis."
-        candidates+=("$folder/step-$steps.pt")
-    fi
-done
-"$python" -m kxvo.xfeat_eval --manifest "$dataset/manifest.csv" --checkpoint "${candidates[@]}" \
-    --device "$device" --output "$output/held-out.json"
+    --train-detector --seeds 1 2 --steps "$steps" --validate-every 500
