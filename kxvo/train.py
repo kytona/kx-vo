@@ -37,6 +37,17 @@ def motion_blur(image, length, angle):
     return cv2.filter2D(image, -1, kernel / kernel.sum())
 
 
+def blur_view(image, rng, max_blur):
+    return motion_blur(image, rng.integers(3, max_blur + 1), rng.uniform(0, math.pi))
+
+
+def blur_pair(first, second, rng, max_blur, both=False):
+    second = blur_view(second, rng, max_blur)
+    if both:
+        first = blur_view(first, rng, max_blur)
+    return first, second
+
+
 def pair(image, rng, blur, max_blur, blur_both=False, blur_rng=None):
     h, w = image.shape
     corners = np.float32([[0, 0], [w - 1, 0], [w - 1, h - 1], [0, h - 1]])
@@ -45,9 +56,7 @@ def pair(image, rng, blur, max_blur, blur_both=False, blur_rng=None):
     second = cv2.warpPerspective(image, warp, (w, h))
     if blur:
         blur_rng = rng if blur_rng is None else blur_rng
-        second = motion_blur(second, blur_rng.integers(3, max_blur + 1), blur_rng.uniform(0, math.pi))
-        if blur_both:
-            image = motion_blur(image, blur_rng.integers(3, max_blur + 1), blur_rng.uniform(0, math.pi))
+        image, second = blur_pair(image, second, blur_rng, max_blur, blur_both)
     return image, second, warp
 
 
@@ -147,7 +156,7 @@ def evaluate_pairs(model, images, max_blur, seed=314, geometric=False):
                 if geometric:
                     a, b = image.first, image.second
                     if degraded:
-                        b = motion_blur(b, blur_rng.integers(3, max_blur + 1), blur_rng.uniform(0, math.pi))
+                        b = blur_view(b, blur_rng, max_blur)
                 else:
                     a, b, warp = pair(image, rng, degraded, max_blur, blur_rng=blur_rng)
                 left = model.detectAndCompute(a, top_k=400)[0]
@@ -283,6 +292,45 @@ def trajectory_comparison(baseline, candidate):
     return (float(np.median(gains)) if min(gains) > 0 else None), scores
 
 
+def training_pair_loss(features, logits, reliability, index, other, cells, labels,
+                       first, second, warp, rng, args):
+    import torch
+
+    left_cells, right_cells = cells
+    sample = rng.choice(len(left_cells), min(len(left_cells), 256), replace=False)
+    left_cells = torch.as_tensor(left_cells[sample], device=args.device)
+    right_cells = torch.as_tensor(right_cells[sample], device=args.device)
+    loss = correspondence_loss(features[index], features[other], left_cells, right_cells)
+    left_map, left = labels(first)
+    if warp is None:
+        right_map, right = labels(second)
+        inverse = None
+    else:
+        right_map, right = left_map, None
+        inverse = np.linalg.inv(warp)
+        if left is not None:
+            right = project(left, warp) if len(left) else left
+    loss += 3.0 * (reliability_loss(reliability[index], left_map) +
+                   reliability_loss(reliability[other], right_map, inverse))
+    if args.train_detector:
+        loss += 0.25 * (detector_loss(logits[index], left, rng) +
+                        detector_loss(logits[other], right, rng, inverse))
+    return loss
+
+
+def select_checkpoint(args, baseline, scores, best, trajectory):
+    if args.select_on_trajectory:
+        gain = trajectory.get("trajectory_gain")
+        candidate = gain if gain is not None else 0.0
+        qualifies = candidate >= 0.15
+    else:
+        candidate = scores["blur"]["recall"]
+        qualifies = (candidate >= baseline["blur"]["recall"] + args.min_blur_gain
+                     and scores["blur"]["coverage_8x6"] >= baseline["blur"]["coverage_8x6"])
+    clean_passes = scores["clean"]["recall"] >= baseline["clean"]["recall"] - args.max_clean_loss
+    return candidate, bool(qualifies and candidate > best and clean_passes)
+
+
 def train_seed(args, rows, seed, geometric=None):
     import torch
 
@@ -333,22 +381,22 @@ def train_seed(args, rows, seed, geometric=None):
           f"blur recall {baseline['blur']['recall']:.3f}", flush=True)
     started = time.monotonic()
     interval_losses = []
+    geometric_choices = list(geometric["train"].values()) if geometric_training else []
     for step in range(1, args.steps + 1):
         model.net.train()
         for child in model.net.modules():
             if isinstance(child, torch.nn.BatchNorm2d):
                 child.eval()
         if geometric_training:
-            choices = list(geometric["train"].values())
-            chosen = [choices[i] for i in rng.integers(len(choices), size=args.batch)]
+            chosen = [geometric_choices[i] for i in rng.integers(len(geometric_choices), size=args.batch)]
             clean_batch = [sample.first for sample in chosen]
             batch = []
             for sample in chosen:
                 first, second = sample.first, sample.second
                 if rng.random() < 0.7:
-                    second = motion_blur(second, rng.integers(3, args.max_blur + 1), rng.uniform(0, math.pi))
+                    second = blur_view(second, rng, args.max_blur)
                     if rng.random() < 0.5:
-                        first = motion_blur(first, rng.integers(3, args.max_blur + 1), rng.uniform(0, math.pi))
+                        first = blur_view(first, rng, args.max_blur)
                 batch.append((first, second, None))
         else:
             clean_batch = [paths["train"][i] for i in rng.integers(len(paths["train"]), size=args.batch)]
@@ -359,28 +407,12 @@ def train_seed(args, rows, seed, geometric=None):
         features, logits, reliability = model.net(torch.cat([a, b]))
         losses = []
         for i, (_, _, warp) in enumerate(batch):
-            p, q = chosen[i].cells if geometric_training else labelled_cells(warp, args.width, args.height)
-            if len(p) >= 2:
-                idx = rng.choice(len(p), min(len(p), 256), replace=False)
-                p_sel = torch.as_tensor(p[idx], device=args.device)
-                q_sel = torch.as_tensor(q[idx], device=args.device)
-                other = i + len(batch)
-                loss = correspondence_loss(features[i], features[other], p_sel, q_sel)
-                training_map, left = labels(clean_batch[i])
-                if geometric_training:
-                    right_map, right = labels(chosen[i].second)
-                    inverse = None
-                else:
-                    right_map, right = training_map, None
-                    inverse = np.linalg.inv(warp)
-                    if left is not None:
-                        right = project(left, warp) if len(left) else left
-                loss += 3.0 * (reliability_loss(reliability[i], training_map) +
-                               reliability_loss(reliability[other], right_map, inverse))
-                if args.train_detector:
-                    loss += 0.25 * (detector_loss(logits[i], left, rng) +
-                                    detector_loss(logits[other], right, rng, inverse))
-                losses.append(loss)
+            cells = chosen[i].cells if geometric_training else labelled_cells(warp, args.width, args.height)
+            if len(cells[0]) >= 2:
+                clean_second = chosen[i].second if geometric_training else None
+                losses.append(training_pair_loss(
+                    features, logits, reliability, i, i + len(batch), cells, labels,
+                    clean_batch[i], clean_second, warp, rng, args))
         if not losses:
             raise RuntimeError("No usable correspondences in training batch")
         loss = torch.stack(losses).mean()
@@ -397,16 +429,7 @@ def train_seed(args, rows, seed, geometric=None):
             if windows:
                 gain, paired = trajectory_comparison(baseline_windows, windows)
                 trajectory.update(paired_trajectories=paired, trajectory_gain=gain)
-            if args.select_on_trajectory:
-                candidate_score = gain if gain is not None else 0.0
-                selected = (candidate_score >= 0.15 and candidate_score > best and
-                            scores["clean"]["recall"] >= baseline["clean"]["recall"] - args.max_clean_loss)
-            else:
-                candidate_score = scores["blur"]["recall"]
-                selected = (candidate_score > best
-                            and candidate_score >= baseline["blur"]["recall"] + args.min_blur_gain
-                            and scores["clean"]["recall"] >= baseline["clean"]["recall"] - args.max_clean_loss
-                            and scores["blur"]["coverage_8x6"] >= baseline["blur"]["coverage_8x6"])
+            candidate_score, selected = select_checkpoint(args, baseline, scores, best, trajectory)
             if selected:
                 best = candidate_score
                 (output / "selected.json").write_text(json.dumps({"checkpoint": save.name, "sha256": sha256(save)}) + "\n")

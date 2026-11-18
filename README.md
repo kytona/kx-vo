@@ -28,6 +28,18 @@ kxbench run runs/demo/scenario.json --output runs/demo-repeat --tracker orb
 
 Use a fresh output directory for each run. Exit status `0` means the run met its thresholds, `1` means it failed a threshold, and `2` means it could not be evaluated.
 
+## What you can benchmark
+
+| Your task | Entry point | Inputs and result |
+| --- | --- | --- |
+| Compare visual tracking models | `kxvo replay` and `kxvo.score` | Use the same recorded images, range and attitude for every tracker. Compare error on shared windows, outages and processing time. |
+| Check a repeatable odometry scenario | `kxbench run` | Supply a JSON manifest with recording, calibration, reference and limits. Get a scorecard and pose trace. |
+| Debug an external navigation integration | `kxbench run` with `pose_stream` | Supply your own timestamped NED poses or a built-in fault fixture. Inspect publication and flight-controller fusion in DataFlash. |
+| Exercise recovery and guidance | `python -m kxvo.sitl` | Run native ArduPilot with delayed frames, telemetry budgets, blackouts, outliers or the box route. |
+| Evaluate a Gazebo camera pipeline | `scripts/run-gazebo-sitl.sh` | Run the pinned Iris physics model and the optional mounted RGB camera. Retain the effective configuration and acceptance evidence. |
+
+Bring a model into the visual estimator through the tracker implementation in [kxvo/trackers.py](kxvo/trackers.py). For a model that already produces positions, the pose-stream contract below lets you test its output directly. PX4 adapters, VLM mission policies and additional environments are future extensions.
+
 ## Measured results
 
 | Profile | Observed result |
@@ -37,7 +49,7 @@ Use a fresh output directory for each run. Exit status `0` means the run met its
 | Pose-stream injection | DataFlash confirmed rejection of a 5 m outlier. The deliberate stale stream failed acceptance. |
 | ArduPilot JSON clock | The stationary fixture completed 2,000 exchanges per run. The received servo packets matched across three normal runs and three with two busy CPU workers. |
 | Gazebo Harmonic RGB | The 15° downward camera profile passed clean ExternalNav and blackout-to-GPS recovery. Clean hold estimator RMS was 0.093 m horizontally. |
-| XFeat fine-tuning | Depth-and-pose supervision beat the warp-trained controls on the same real-viewpoint validation pairs. Neither seed reached the blur-recall gain required for held-out testing. |
+| XFeat fine-tuning | Both distilled seeds improved held-out school matching and synthetic trajectory error over pretrained XFeat. Seed 1 passed the general matching regression tolerance. |
 
 The passing Gazebo profile uses emulated floor range and host receive times to associate camera frames with simulator truth. The report includes earlier camera configurations that exceeded the error limit. [Simulator and geometric training results](results/benchmark-followthrough/README.md)
 
@@ -95,7 +107,61 @@ scripts/run-gazebo-sitl.sh runs/gazebo-recovery --timeout 140 \
   --blackout-seconds 1 --delay-ms 50 --fallback-source gps
 ```
 
-## Reproduce XFeat training
+## Fine-tuning XFeat
+
+We started with VeRLab's pretrained sparse XFeat and kept its architecture. Fine-tuning updates the descriptor backbone, detector and reliability head. The hybrid estimator uses learned detections and descriptors to seed and recover tracks, with KLT supplying frame-to-frame continuity.
+
+The experiments progressed through four stages:
+
+1. **Warp and blur training.** We trained two independent seeds on 1,000 public TartanAir source images, with 200 validation images on separate routes and a school environment held out for testing.
+2. **Trainer diagnostics.** We measured feature recall, spatial coverage and reliability maps, then corrected detector negatives, paired validation warps and the reliability objective. These checks exposed why an early recipe regressed.
+3. **Geometric supervision.** We downloaded neighboring RGB frames, depth and poses. Bidirectional projection and depth checks reject occluded correspondences. Two geometric seeds preserved more real-viewpoint matching than their warp-trained controls.
+4. **Teacher distillation and trajectory selection.** We distilled clean reliability maps from the frozen pretrained model and trained both seeds for 10,000 steps. Five development replays determined checkpoint selection. Separate matching and trajectory benchmarks measured generalization.
+
+The selected checkpoints were step 5,000 for seed 1 and step 10,000 for seed 2. They improved on pretrained XFeat in the held-out school and separate synthetic replays.
+
+| Model | School clean recall | School blurred recall | Synthetic blurred 5 s error |
+| --- | ---: | ---: | ---: |
+| Pretrained XFeat | 41.2% | 30.5% | 0.1661 m |
+| Distilled XFeat, seed 1 | 44.2% | 34.6% | 0.0879 m |
+| Distilled XFeat, seed 2 | 43.7% | 33.6% | 0.0534 m |
+| Classical KLT | | | 0.0515 m |
+
+The trajectory column is the median across five synthetic fixtures on windows shared by all arms. The scorer separately reports lost windows. Seed 1 stayed within the two-point MegaDepth regression tolerance. Seed 2 exceeded it by 0.10 points at 20°. These tuned checkpoints have held-out matching and offline replay evidence. Their SITL and FlyTimes qualification is pending. [Training, comparison counts and generalization results](results/reliability-and-clock/README.md)
+
+### Download and try the trained weights
+
+Install the XFeat and plotting extras, then download the selected checkpoints. The release includes the model card, source attribution and checksums.
+
+```sh
+python -m pip install -e '.[xfeat,plots]'
+scripts/setup-xfeat.sh
+mkdir -p runs/distilled
+gh release download tartanair-xfeat-distilled-v2 --repo kytona/kx-vo \
+  --dir runs/distilled --pattern '*.pt' --pattern SHA256SUMS
+(cd runs/distilled && shasum -a 256 -c SHA256SUMS)
+
+kxbench run runs/demo/scenario.json --output runs/demo-distilled \
+  --tracker xfeat --device mps \
+  --checkpoint runs/distilled/xfeat-tartanair-distilled-seed-1.pt
+```
+
+Use `cpu` or `cuda` for your device. The download command uses the GitHub CLI. You can also download the assets from the release page. [Selected weights](https://github.com/kytona/kx-vo/releases/tag/tartanair-xfeat-distilled-v2) · [Model card](results/reliability-and-clock/MODEL-CARD.md)
+
+Compare all four trackers on the quickstart capture and generate a trajectory plot:
+
+```sh
+KXVO_DEVICE=mps KXVO_RANGE_OFFSET_Z=0 scripts/replay-experiment.sh \
+  runs/demo/camera.json runs/demo/capture runs/demo-comparison \
+  runs/distilled/xfeat-tartanair-distilled-seed-1.pt
+python -m kxvo.score --reference runs/demo/capture/log.jsonl \
+  --output runs/demo-comparison/metrics.json --plot runs/demo-comparison/trajectory.png \
+  runs/demo-comparison/*.jsonl
+```
+
+The comparison contains KLT, ORB, pretrained XFeat and the downloaded checkpoint. Its `paired_relative_windows` field reports errors on common windows and the windows lost by each arm.
+
+### Reproduce the training
 
 ```sh
 python -m pip install -e '.[xfeat,benchmark]'
@@ -111,11 +177,7 @@ The RGB recipe verifies the frozen manifest hash, distils reliability from the p
 scripts/evaluate-tartanair-xfeat.sh runs/my-tartanair mps replay
 ```
 
-The distilled checkpoints both improved held-out school recall and synthetic replay relative error over pretrained XFeat. Seed 1 also passed the MegaDepth tolerance. Stock KLT retained the lowest median error on the blurred synthetic trajectories. [Distillation results](results/reliability-and-clock/README.md)
-
-Download the latest selected weights and SHA-256 checksums from the [distilled XFeat release](https://github.com/kytona/kx-vo/releases/tag/tartanair-xfeat-distilled-v2). The [distilled model card](results/reliability-and-clock/MODEL-CARD.md) describes the checkpoint selection and limitations.
-
-The original experimental weights are available for reproducing their results. The release note explains the trainer defects that confound the first run and links to the corrected recipe. [Checkpoint release](https://github.com/kytona/kx-vo/releases/tag/tartanair-xfeat-v1) · [Model card](results/tartanair-xfeat/MODEL-CARD.md) · [Review correction](results/tartanair-xfeat-review/README.md)
+The first 500-step experimental weights remain available for reproducing the early recipe. Its release note documents the trainer defects and links to the corrections. [Checkpoint release](https://github.com/kytona/kx-vo/releases/tag/tartanair-xfeat-v1) · [Model card](results/tartanair-xfeat/MODEL-CARD.md) · [Review correction](results/tartanair-xfeat-review/README.md)
 
 ## Record and replay a real camera
 

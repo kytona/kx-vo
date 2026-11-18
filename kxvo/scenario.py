@@ -10,13 +10,23 @@ from .score import load_reference, score
 from .trackers import sha256
 
 
+def write_scorecard(output, result):
+    (output / "score.json").write_text(json.dumps(result, indent=2, allow_nan=False) + "\n")
+    print(f"{result['verdict']}: {output / 'score.json'}")
+    return {"pass": 0, "fail": 1, "invalid": 2}[result["verdict"]]
+
+
+def scenario_identity(manifest, config):
+    return {"scenario": config.get("name", manifest.stem), "track": config["track"],
+            "manifest_sha256": sha256(manifest)}
+
+
 def run_pose_stream(manifest, config, output, arducopter, instance):
     from .sitl import main as sitl
 
     output.mkdir(parents=True)
     flight = output / "flight"
-    result = {"scenario": config.get("name", manifest.stem), "track": "pose_stream",
-              "manifest_sha256": sha256(manifest)}
+    result = scenario_identity(manifest, config)
     try:
         argv = ["--arducopter", str(arducopter), "--output", str(flight),
                 "--seed", str(config["seed"]), "--instance", str(instance), "--timeout", "110"]
@@ -41,9 +51,7 @@ def run_pose_stream(manifest, config, output, arducopter, instance):
         result.update(verdict="pass" if status == 0 else "fail", evidence=summary)
     except (KeyError, TypeError, ValueError, OSError, SystemExit) as exc:
         result.update(verdict="invalid", reason=str(exc))
-    (output / "score.json").write_text(json.dumps(result, indent=2, allow_nan=False) + "\n")
-    print(f"{result['verdict']}: {output / 'score.json'}")
-    return {"pass": 0, "fail": 1, "invalid": 2}[result["verdict"]]
+    return write_scorecard(output, result)
 
 
 def run(manifest, output, tracker, checkpoint, device, window_details=None):
@@ -53,8 +61,7 @@ def run(manifest, output, tracker, checkpoint, device, window_details=None):
         raise ValueError("Expected a version 1 odometry_replay scenario")
     output.mkdir(parents=True)
     trace = output / "poses.jsonl"
-    result = {"scenario": config.get("name", manifest.stem), "manifest_sha256": sha256(manifest),
-              "track": config["track"], "tracker": tracker, "device": device}
+    result = {**scenario_identity(manifest, config), "tracker": tracker, "device": device}
     try:
         camera = manifest.parent / config["camera"]
         recording = manifest.parent / config["recording"]
@@ -88,9 +95,7 @@ def run(manifest, output, tracker, checkpoint, device, window_details=None):
         result.update(verdict="fail" if failures else "pass", failures=failures, metrics=metrics, limits=limits)
     except (KeyError, TypeError, ValueError, OSError, SystemExit) as exc:
         result.update(verdict="invalid", reason=str(exc))
-    (output / "score.json").write_text(json.dumps(result, indent=2, allow_nan=False) + "\n")
-    print(f"{result['verdict']}: {output / 'score.json'}")
-    return {"pass": 0, "fail": 1, "invalid": 2}[result["verdict"]]
+    return write_scorecard(output, result)
 
 
 def make_fixture(root, scene_seed=12, sensor_seed=8, degraded=False):
