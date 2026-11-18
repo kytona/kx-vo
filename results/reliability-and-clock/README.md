@@ -1,5 +1,7 @@
 # Paired replay and simulator timing
 
+The [distilled model card](MODEL-CARD.md) links to downloadable checkpoints, checksums and usage instructions.
+
 ## XFeat reliability distillation
 
 The revised trainer matches reliability to the frozen teacher’s clean maps. It projects the second view’s targets by inverse homography and masks cells outside the original image. The fixed recipe verifies the published manifest hash before training and checks five paired development replays for each checkpoint.

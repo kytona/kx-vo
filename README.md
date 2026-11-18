@@ -113,6 +113,8 @@ scripts/evaluate-tartanair-xfeat.sh runs/my-tartanair mps replay
 
 The distilled checkpoints both improved held-out school recall and synthetic replay relative error over pretrained XFeat. Seed 1 also passed the MegaDepth tolerance. Stock KLT retained the lowest median error on the blurred synthetic trajectories. [Distillation results](results/reliability-and-clock/README.md)
 
+Download the latest selected weights and SHA-256 checksums from the [distilled XFeat release](https://github.com/kytona/kx-vo/releases/tag/tartanair-xfeat-distilled-v2). The [distilled model card](results/reliability-and-clock/MODEL-CARD.md) describes the checkpoint selection and limitations.
+
 The original experimental weights are available for reproducing their results. The release note explains the trainer defects that confound the first run and links to the corrected recipe. [Checkpoint release](https://github.com/kytona/kx-vo/releases/tag/tartanair-xfeat-v1) · [Model card](results/tartanair-xfeat/MODEL-CARD.md) · [Review correction](results/tartanair-xfeat-review/README.md)
 
 ## Record and replay a real camera
